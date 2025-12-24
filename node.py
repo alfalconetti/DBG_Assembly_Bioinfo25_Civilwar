@@ -1,4 +1,4 @@
-class Nodo:
+class Node:
     def __init__(self, seq):
         self.seq = seq
         self.incoming = []
