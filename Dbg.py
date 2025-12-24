@@ -16,4 +16,7 @@ class Dbg:
 	# CAMMINO
 	### Parto casualmente, arrivo fino a un hub (outbound edges > 2)
 	### Se riesco risolvo, altrimenti mi fermo
-
+    def __init__(self):
+        self.nodes = {}  #dizionario nodi
+        self.edges = {}  #dizionario archi
+		
