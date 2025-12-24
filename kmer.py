@@ -15,6 +15,6 @@ def kmer_generate(sequence, k):
 
     for i in range(len(sequence) - k + 1):
         substring = sequence[i : i + k]
-        kmers_list.append(substring) # Aggiungiamo alla lista
+        kmers_list.append(substring)
 
     return kmers_list
