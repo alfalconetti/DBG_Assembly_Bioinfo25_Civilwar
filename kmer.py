@@ -1,0 +1,1 @@
+def kmer_generate(seq):
