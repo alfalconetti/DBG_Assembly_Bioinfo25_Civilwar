@@ -1,3 +1,5 @@
+from kmer import kmer_generate
+
 class Dbg:
 	# COSTRUZIONE
 	### Dizionario nodi e archi
