@@ -87,7 +87,7 @@ class Dbg:
                 edge_to_delete.source.outgoing.remove(edge_to_delete) #rimuovo dalla lista outgoing l'arco
             
             if edge_to_delete in edge_to_delete.destination.incoming:
-                edge_to_delete.destination.incoming.remove(edge_to_delete) #rimuovo dalla lista outgoing l'arco
+                edge_to_delete.destination.incoming.remove(edge_to_delete) #rimuovo dalla lista incoming l'arco
 
         
             del self.edges[kmer] #rimuovo dal dict
