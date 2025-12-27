@@ -71,4 +71,27 @@ class Dbg:
                 self.edges[kmer] = new_edge
                 node_prefix.outgoing.append(new_edge) #aggiorno gli archi in entrata e in uscita dai nodi
                 node_suffix.incoming.append(new_edge)
+
+    
+    def prune_graph(self, threshold=2):
+        kmers_to_remove = []
+        for kmer, edge in self.edges.items():
+            if edge.weight < threshold:
+                kmers_to_remove.append(kmer) #aggiungo i kmeri da rimuovere alla lista
+
+        count = 0
+        for kmer in kmers_to_remove:
+            edge_to_delete = self.edges[kmer]
+            
+            if edge_to_delete in edge_to_delete.source.outgoing:
+                edge_to_delete.source.outgoing.remove(edge_to_delete) #rimuovo dalla lista outgoing l'arco
+            
+            if edge_to_delete in edge_to_delete.destination.incoming:
+                edge_to_delete.destination.incoming.remove(edge_to_delete) #rimuovo dalla lista outgoing l'arco
+
+        
+            del self.edges[kmer] #rimuovo dal dict
+            count += 1
+            
+        print(f"{count} edges removed")
         
