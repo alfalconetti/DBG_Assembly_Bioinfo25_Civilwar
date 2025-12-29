@@ -73,7 +73,7 @@ class Dbg:
         def rc(seq):
             return seq.translate(str.maketrans({'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}))[::-1]
 
-        def put_reads_graph(reads, quality_check, reverse_complement = False):
+        def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False):
             for read_tup in reads:
                 read = read_tup[0]
                 if reverse_complement:
@@ -82,28 +82,32 @@ class Dbg:
                     read_qual = read_tup[1]
                     if median_qual(read_qual) > quality_threshold:
                         self.add_read(read)
+                        if use_both_strands:
+                            self.add_read(rc(read))
                 else:
                     self.add_read(read)
+                    if use_both_strands:
+                        self.add_read(rc(read))
     
 
         if not isinstance(quality_check, bool):
             raise TypeError("quality_check must be boolean")
         if not isinstance(quality_threshold, int):
             raise TypeError("quality_threshold must be integer")
+        if not isinstance(use_both_strands, bool):
+            raise TypeError("use_both_strands must be boolean")
         if self.file_type == 'fasta' and quality_check:
             print("You can't perform a quality check if your reads are in fasta format.")
             quality_check = False
             print("quality check disabled")
+        if self.reverse_r2 and use_both_strands:
+            print("You are using both strands after setting reverse_r2 to True. This wil override reverse_r2")
 
         reads1 = parser(file_name=self.file_nameR1, file_type=self.file_type, quality= quality_check) #generator
-        put_reads_graph(reads1, quality_check, reverse_complement = False)
-        if use_both_strands:
-            put_reads_graph(reads1, quality_check, reverse_complement = True)
+        put_reads_graph(reads1, quality_check, reverse_complement = False, use_both_strands = use_both_strands)
         if self.paired:
             reads2 = parser(file_name=self.file_nameR2, file_type=self.file_type, quality= quality_check) #generator
-            put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2)
-            if use_both_strands:
-                put_reads_graph(reads2, quality_check, reverse_complement = not self.reverse_r2)
+            put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2, use_both_strands = use_both_strands)
 
         
     def add_read(self, read):
