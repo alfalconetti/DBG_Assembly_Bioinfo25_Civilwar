@@ -24,23 +24,39 @@ class Dbg:
     # CAMMINO
     ### Parto casualmente, arrivo fino a un hub (outbound edges > 2)
     ### Se riesco risolvo, altrimenti mi fermo
-    def __init__(self, k, file_name, file_type):
+    def __init__(self, k, file_name, file_type, paired = False, file_nameR2 = None):
         if not isinstance(k, int):
             raise TypeError('k parameter must be integer')
         if not isinstance(file_name, str):
             raise TypeError('file_name must be string')
         if not isinstance(file_type, str):
             raise TypeError('file_type must be string')
+        if not isinstance(paired, bool):
+            raise TypeError('paired must be boolean')
         if file_type not in ['fa', 'fq', 'fasta', 'fastq']:
             raise IOError("file_type must be one of the following: ['fa', 'fq', 'fasta', 'fastq']")
         self.k = k #lunghezza kmeri
         self.nodes = {}  #dizionario nodi
         self.edges = {}  #dizionario archi
-        self.file_name = file_name
+        self.file_nameR1 = file_name
         if file_type in ['fa', 'fasta']:
             self.file_type = 'fasta'
         elif file_type in ['fq', 'fastq']:
             self.file_type = 'fastq'
+        if file_type in ['fa', 'fasta'] and paired:
+            print("Data in fasta format cannot be paired")
+            paired = False
+            print("paired set to False")
+        self.paired = paired
+        if self.paired == True:
+            if not isinstance(file_nameR2, str):
+                raise TypeError("file_nameR2 must be string")
+            else:
+                self.file_nameR2 = file_nameR2
+        else:
+            if file_nameR2 is not None:
+                print("You inputed file_nameR2 but paired is false or file_type is fasta. It will not be used")
+
 
 
     def build_graph(self, quality_check = False, quality_threshold = 30):
@@ -49,6 +65,18 @@ class Dbg:
             from statistics import median
             qual_list = list(map(lambda x: ord(x) - 33,qual_string))
             return median(qual_list)
+
+
+        def put_reads_graph(reads, quality_check):
+            for read_tup in reads:
+                read = read_tup[0]
+                if quality_check:
+                    read_qual = read_tup[1]
+                    if median_qual(read_qual) > quality_threshold:
+                        self.add_read(read)
+                else:
+                    self.add_read(read)
+    
 
         if not isinstance(quality_check, bool):
             raise TypeError("quality_check must be boolean")
@@ -59,19 +87,13 @@ class Dbg:
             quality_check = False
             print("quality check disabled")
 
-        reads = parser(file_name=self.file_name, file_type=self.file_type, quality= quality_check) #generator
-        for read_tup in reads:
-            read = read_tup[0]
-            if quality_check:
-                read_qual = read_tup[1]
-                if median_qual(read_qual) > quality_threshold:
-                    self.add_read(read)
-            else:
-                self.add_read(read)
-    
-    
+        reads1 = parser(file_name=self.file_nameR1, file_type=self.file_type, quality= quality_check) #generator
+        put_reads_graph(reads1, quality_check)
+        if self.paired:    
+            reads2 = parser(file_name=self.file_nameR2, file_type=self.file_type, quality= quality_check) #generator
+            put_reads_graph(reads2, quality_check)
 
-
+        
     def add_read(self, read):
         for kmer in kmer_generate(read, self.k):
             prefix = kmer[:-1] #calcolo prefisso e suffisso
