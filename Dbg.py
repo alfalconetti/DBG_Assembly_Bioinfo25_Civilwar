@@ -63,7 +63,7 @@ class Dbg:
                 print("You set reverse_r2 to True but paired is false. It will not be used")
 
 
-    def build_graph(self, quality_check = False, quality_threshold = 30):
+    def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True):
         
         def median_qual(qual_string):
             from statistics import median
@@ -97,9 +97,13 @@ class Dbg:
 
         reads1 = parser(file_name=self.file_nameR1, file_type=self.file_type, quality= quality_check) #generator
         put_reads_graph(reads1, quality_check, reverse_complement = False)
+        if use_both_strands:
+            put_reads_graph(reads1, quality_check, reverse_complement = True)
         if self.paired:
             reads2 = parser(file_name=self.file_nameR2, file_type=self.file_type, quality= quality_check) #generator
             put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2)
+            if use_both_strands:
+                put_reads_graph(reads2, quality_check, reverse_complement = not self.reverse_r2)
 
         
     def add_read(self, read):
