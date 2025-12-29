@@ -50,6 +50,15 @@ class Dbg:
             qual_list = list(map(lambda x: ord(x) - 33,qual_string))
             return median(qual_list)
 
+        if not isinstance(quality_check, bool):
+            raise TypeError("quality_check must be boolean")
+        if not isinstance(quality_threshold, int):
+            raise TypeError("quality_threshold must be integer")
+        if self.file_type == 'fasta' and quality_check:
+            print("You can't perform a quality check if your reads are in fasta format.")
+            quality_check = False
+            print("quality check disabled")
+
         reads = parser(file_name=self.file_name, file_type=self.file_type, quality= quality_check) #generator
         for read_tup in reads:
             read = read_tup[0]
