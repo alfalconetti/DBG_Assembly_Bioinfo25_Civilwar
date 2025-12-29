@@ -24,7 +24,7 @@ class Dbg:
     # CAMMINO
     ### Parto casualmente, arrivo fino a un hub (outbound edges > 2)
     ### Se riesco risolvo, altrimenti mi fermo
-    def __init__(self, k, file_name, file_type, paired = False, file_nameR2 = None):
+    def __init__(self, k, file_name, file_type, paired = False, file_nameR2 = None, reverse_r2 = False):
         if not isinstance(k, int):
             raise TypeError('k parameter must be integer')
         if not isinstance(file_name, str):
@@ -33,6 +33,8 @@ class Dbg:
             raise TypeError('file_type must be string')
         if not isinstance(paired, bool):
             raise TypeError('paired must be boolean')
+        if not isinstance(reverse_r2, bool):
+            raise TypeError("reverse_r2 must be boolean")
         if file_type not in ['fa', 'fq', 'fasta', 'fastq']:
             raise IOError("file_type must be one of the following: ['fa', 'fq', 'fasta', 'fastq']")
         self.k = k #lunghezza kmeri
@@ -53,10 +55,12 @@ class Dbg:
                 raise TypeError("file_nameR2 must be string")
             else:
                 self.file_nameR2 = file_nameR2
+                self.reverse_r2 = reverse_r2
         else:
             if file_nameR2 is not None:
                 print("You inputed file_nameR2 but paired is false or file_type is fasta. It will not be used")
-
+            if reverse_r2:
+                print("You set reverse_r2 to True but paired is false. It will not be used")
 
 
     def build_graph(self, quality_check = False, quality_threshold = 30):
@@ -66,10 +70,14 @@ class Dbg:
             qual_list = list(map(lambda x: ord(x) - 33,qual_string))
             return median(qual_list)
 
+        def rc(seq):
+            return seq.translate(str.maketrans({'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}))[::-1]
 
-        def put_reads_graph(reads, quality_check):
+        def put_reads_graph(reads, quality_check, reverse_complement = False):
             for read_tup in reads:
                 read = read_tup[0]
+                if reverse_complement:
+                    read = rc(read)
                 if quality_check:
                     read_qual = read_tup[1]
                     if median_qual(read_qual) > quality_threshold:
@@ -88,10 +96,10 @@ class Dbg:
             print("quality check disabled")
 
         reads1 = parser(file_name=self.file_nameR1, file_type=self.file_type, quality= quality_check) #generator
-        put_reads_graph(reads1, quality_check)
-        if self.paired:    
+        put_reads_graph(reads1, quality_check, reverse_complement = False)
+        if self.paired:
             reads2 = parser(file_name=self.file_nameR2, file_type=self.file_type, quality= quality_check) #generator
-            put_reads_graph(reads2, quality_check)
+            put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2)
 
         
     def add_read(self, read):
