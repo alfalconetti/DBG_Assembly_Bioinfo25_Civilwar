@@ -67,7 +67,7 @@ class Dbg:
         
         def median_qual(qual_string):
             from statistics import median
-            qual_list = list(map(lambda x: ord(x) - 33,qual_string))
+            qual_list = [ord(x) - 33 for x in qual_string]
             return median(qual_list)
 
         def rc(seq):
