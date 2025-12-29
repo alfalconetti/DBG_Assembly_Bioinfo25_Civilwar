@@ -43,12 +43,24 @@ class Dbg:
             self.file_type = 'fastq'
 
 
-    def build_graph(self):
-        reads = parser(file_name=self.file_name, file_type=self.file_type) #generator
-        for read in reads:
-            self.add_read(read)
+    def build_graph(self, quality_check = False, quality_threshold = 30):
+        
+        def median_qual(qual_string):
+            from statistics import median
+            qual_list = list(map(lambda x: ord(x) - 33,qual_string))
+            return median(qual_list)
 
-
+        reads = parser(file_name=self.file_name, file_type=self.file_type, quality= quality_check) #generator
+        for read_tup in reads:
+            read = read_tup[0]
+            if quality_check:
+                read_qual = read_tup[1]
+                if median_qual(read_qual) > quality_threshold:
+                    self.add_read(read)
+            else:
+                self.add_read(read)
+    
+    
 
 
     def add_read(self, read):

@@ -1,6 +1,10 @@
-def parser(file_name, file_type): ##FASTA o FASTQ
+def parser(file_name, file_type, quality = False): ##FASTA o FASTQ
+    if not isinstance(quality, bool):
+        raise TypeError("quality must be boolean")
     if file_type not in ("fasta", "fastq"):
         raise ValueError("Only allowed flags are 'fasta' and 'fastq'")
+    if quality and file_type == 'fasta':
+        print("You can't use quality flag for FASTA")
     print(f"Opening {file_name} for parsing")
     f = checkOpenFastFile(file_name, file_type)
     try:
@@ -8,7 +12,7 @@ def parser(file_name, file_type): ##FASTA o FASTQ
             for sequence in seqParserFasta(f):
                 yield sequence
         elif file_type == 'fastq':
-            for sequence in seqParserFastq(f):
+            for sequence in seqParserFastq(f, quality=quality):
                 yield sequence
     finally:
         f.close() #Chiudi file a prescindere da errori
@@ -67,7 +71,7 @@ def checkOpenFastFile(file_name, file_type):
     return f
 
 
-def seqParserFastq(f):
+def seqParserFastq(f, quality = False):
     """
     """
     allowed_symbols = 'AGCTN'
@@ -88,7 +92,13 @@ def seqParserFastq(f):
             if not row.startswith('+'):
                 raise ValueError("Your fastq file seems to be corrupt. It is lacking a + on third sequence row beginning")
         elif n_row == 3:
-            yield sequence
+            qual_string = row.strip()
+            if len(qual_string) != len(sequence):
+                raise ValueError(f"Mismatching length of quality and sequence string at row {i}. Check your file")
+            if quality:
+                yield (sequence, qual_string)
+            else:
+                yield (sequence, None)
         i += 1
 
 
@@ -103,7 +113,7 @@ def seqParserFasta(f):
             continue
         if row.startswith('>'):
             if sequence != '':
-                yield sequence
+                yield (sequence, None)
             sequence = ''
         else:
             row = row.upper()
@@ -114,4 +124,4 @@ def seqParserFasta(f):
                 primer_tip = "Are you sure it is not a primer?" if len(row) < 30 else ''
                 raise ValueError(f"Unknown symbol found in sequence: {not_nts}. {primer_tip}")
     if sequence != '':
-        yield sequence # yields final sequence
+        yield (sequence, None) # yields final sequence
