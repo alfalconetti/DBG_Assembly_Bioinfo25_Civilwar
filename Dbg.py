@@ -174,7 +174,7 @@ class Dbg:
         print(f"Average coverage: {avg_coverage:.2f}X")
         
         
-    def write_contigs(self, output_filename="output.fasta"):
+    def write_contigs(self, output_filename="contigs.fasta"):
         if not isinstance(output_filename, str):
             raise TypeError("output_filename must be string")
         contigs = self.get_contigs()  #get_contigs da fare
