@@ -194,7 +194,7 @@ class Dbg:
 
     
     @staticmethod
-    def calculate_n50(lengths): #lista di lunghezze
+    def n50(lengths): #lista di lunghezze
         if not isinstance(lengths, list):
             raise TypeError("lenghts must be list")
         if not lengths:
