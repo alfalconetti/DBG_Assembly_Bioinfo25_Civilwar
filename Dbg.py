@@ -2,6 +2,7 @@ from kmer import kmer_generate
 from node import Node
 from edge import Edge
 from parser import parser
+from utils import rc
 
 class Dbg:
     # DUBBI: FILTERING PER BASSA QUALITY?
@@ -50,6 +51,7 @@ class Dbg:
             paired = False
             print("paired set to False")
         self.paired = paired
+        self.reverse_r2 = False
         if self.paired == True:
             if not isinstance(file_nameR2, str):
                 raise TypeError("file_nameR2 must be string")
@@ -70,8 +72,6 @@ class Dbg:
             qual_list = [ord(x) - 33 for x in qual_string]
             return median(qual_list)
 
-        def rc(seq):
-            return seq.translate(str.maketrans({'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}))[::-1]
 
         def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False):
             for read_tup in reads:
@@ -81,13 +81,9 @@ class Dbg:
                 if quality_check:
                     read_qual = read_tup[1]
                     if median_qual(read_qual) > quality_threshold:
-                        self.add_read(read)
-                        if use_both_strands:
-                            self.add_read(rc(read))
+                        self.add_read(read, use_both_strands = use_both_strands)
                 else:
-                    self.add_read(read)
-                    if use_both_strands:
-                        self.add_read(rc(read))
+                    self.add_read(read, use_both_strands = use_both_strands)
     
 
         if not isinstance(quality_check, bool):
@@ -110,8 +106,8 @@ class Dbg:
             put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2, use_both_strands = use_both_strands)
 
         
-    def add_read(self, read):
-        for kmer in kmer_generate(read, self.k):
+    def add_read(self, read, use_both_strands):
+        for kmer in kmer_generate(read, self.k, reverse= use_both_strands):
             prefix = kmer[:-1] #calcolo prefisso e suffisso
             suffix = kmer[1:]
 
