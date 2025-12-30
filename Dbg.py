@@ -173,3 +173,40 @@ class Dbg:
         print(f"Edges: {num_edges}")
         print(f"Average coverage: {avg_coverage:.2f}X")
         
+        
+    def write_contigs(self, output_filename="output.fasta"):
+        if not isinstance(output_filename, str):
+            raise TypeError("output_filename must be string")
+        contigs = self.get_contigs()  #get_contigs da fare
+        try:
+            with open(output_filename, "w") as f:
+                i=0
+                for contig in contigs:
+                    f.write(f">contig_{i+1} len={len(contig)}\n")
+                    f.write(f"{contig}\n")
+                    i+=1
+            print(f"saved file: {output_filename}")
+            return [len(c) for c in contigs] #lista lunghezze per n50
+            
+        except IOError as e:
+            print(f"Error writing to file {output_filename}: {e}")
+            return[]
+
+    
+    @staticmethod
+    def calculate_n50(lengths): #lista di lunghezze
+        if not isinstance(lengths, list):
+            raise TypeError("lenghts must be list")
+        if not lengths:
+            return 0
+            
+        sorted_lengths = sorted(lengths, reverse=True) #ordinamento decres
+        total_len = sum(sorted_lengths) #somma lenghts
+        threshold = total_len / 2 #soglia
+        
+        current_sum = 0
+        for length in sorted_lengths:
+            current_sum += length
+            if current_sum >= threshold:
+                return length #n50
+        
