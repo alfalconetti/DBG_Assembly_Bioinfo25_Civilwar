@@ -192,12 +192,12 @@ class Dbg:
     @staticmethod
     def n50(lengths): #lista di lunghezze
         if not isinstance(lengths, list):
-            raise TypeError("lenghts must be list")
+            raise TypeError("lengths must be list")
         if not lengths:
             return 0
             
         sorted_lengths = sorted(lengths, reverse=True) #ordinamento decres
-        total_len = sum(sorted_lengths) #somma lenghts
+        total_len = sum(sorted_lengths) #somma lengths
         threshold = total_len / 2 #soglia
         
         current_sum = 0
