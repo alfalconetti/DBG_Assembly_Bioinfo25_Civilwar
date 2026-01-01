@@ -150,15 +150,15 @@ class Dbg:
             
         print(f"{count} edges removed")
         
-    @staticmethod   #ha senso lo static method? sennò lo cambio
-    def get_graph_stats(graph):
+
+    def get_graph_stats(self):
     
-        num_nodes = len(graph.nodes) #numero nodi
-        num_edges = len(graph.edges)
+        num_nodes = len(self.nodes) #numero nodi
+        num_edges = len(self.edges)
         total_weight = 0
         
         if num_edges > 0:
-            total_weight = sum(edge.weight for edge in graph.edges.values())
+            total_weight = sum(edge.weight for edge in self.edges.values())
             
             avg_coverage = total_weight / num_edges
         else:
