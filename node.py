@@ -6,3 +6,6 @@ class Node:
 
     def is_hub(self):
         return len(self.outgoing) > 1
+        
+    def is_receiving_hub(self):
+        return len(self.incoming) > 1
