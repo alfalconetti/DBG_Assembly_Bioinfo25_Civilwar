@@ -205,4 +205,15 @@ class Dbg:
             current_sum += length
             if current_sum >= threshold:
                 return length #n50
+                
+    def rm_isolated_nodes(self):
+        nodes_to_rm = []
+        for kmer, node in self.nodes.items():
+            if len(node.incoming) == 0 and len(node.outgoing) == 0:
+                nodes_to_rm.append(kmer)
+        
+        for kmer in nodes_to_rm:
+            del self.nodes[kmer]
+        
+        print(f"removed {len(nodes_to_rm)} nodes")
         
