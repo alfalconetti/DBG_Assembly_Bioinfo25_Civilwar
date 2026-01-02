@@ -147,8 +147,9 @@ class Dbg:
         
             del self.edges[kmer] #rimuovo dal dict
             count += 1
-            
+        
         print(f"{count} edges removed")
+        self.rm_isolated_nodes()
         
 
     def get_graph_stats(self):
@@ -215,5 +216,5 @@ class Dbg:
         for kmer in nodes_to_rm:
             del self.nodes[kmer]
         
-        print(f"removed {len(nodes_to_rm)} nodes")
+        print(f"removed {len(nodes_to_rm)} isolated nodes")
         
