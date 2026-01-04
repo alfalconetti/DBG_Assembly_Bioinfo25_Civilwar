@@ -1,10 +1,13 @@
-from kmer import kmer_generate
+# IMPORT GRAPH BASIC STRUCTURES
 from node import Node
 from edge import Edge
-from parser import parser
-from utils import rc
+# IMPORT BUBBLES AND TIPS FOR TOPOLOGICALLY BASED PRUNING
 from bubble import Bubble
-
+from tip import Tip
+# IMPORT HELPER FUNCTIONS
+from kmer import kmer_generate
+from parser import parser
+from utils import rc, median_qual
 class Dbg:
     # DUBBI: FILTERING PER BASSA QUALITY?
 
@@ -67,9 +70,6 @@ class Dbg:
 
 
     def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True):
-        
-        from utils import median_qual
-
         def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False):
             for read_tup in reads:
                 read = read_tup[0]
@@ -272,15 +272,15 @@ class Dbg:
 
         while True: #itero, vengono risolte prima le bolle interne
             popped_count = 0
+            found_bubbles = False
 
-            bubbles = list(self.detect_bubbles(max_len))
-
-            if not bubbles:
-                break  #se non trovo bolle
-
-            for bubble in bubbles:
+            for bubble in self.detect_bubbles(max_len):
+                found_bubbles = True
                 if bubble.resolve(self, cov_threshold):
                     popped_count += 1
+
+            if not found_bubbles:
+                break
 
             print(f"Iteration {iteration}: {popped_count} bubbles popped")
             if popped_count == 0: #magari ci sono ancora bolle, ma non vengono risolte
@@ -289,6 +289,71 @@ class Dbg:
 
         self.rm_isolated_nodes()
 
+    def detect_tips(self, max_len):
+        # Detection tips di tipo I
+        potential_inital_nodes_I = [node for node in self.nodes.values() if node.is_hub()]
+        for fork_node in potential_inital_nodes_I:
+            candidates = {}  #chiave: sequenza nodo arrivo, valore: lista path(lista di di edges)
 
+            for edge in fork_node.outgoing:
+                path = [edge]
+                curr = edge.destination
+                valid = True #diventa False quando il nodo è un hub o tip
+
+                while len(path) < max_len: #se è lungo piu di 2k+1, lo tengo
+                    if len(curr.outgoing) == 0:
+                        break #chiusura tip
+
+                    if curr.is_hub():
+                        valid = False # Tip annidati
+                        break
+
+                    next_edge = curr.outgoing[0]
+                    path.append(next_edge) #aggiungo edge al path
+                    curr = next_edge.destination
+
+                #se il percorso è valido e viene troncato prima di max_len
+                if valid and len(curr.outgoing) == 0:
+                    dest_seq = curr.seq
+                    if dest_seq not in candidates: 
+                        candidates[dest_seq] = []
+                    candidates[dest_seq].append(path) #aggiorno dict
+
+
+            for dest_seq, paths in candidates.items():
+                dest_node = self.nodes[dest_seq]
+                yield Tip(fork_node, dest_node, paths, 1) #restituisco l'oggetto Tip
+
+       
+        # Detection tips di tipo II
+        potential_initial_nodes_II = [node for node in self.nodes.values() if len(node.incoming) == 0 and len(node.outgoing) == 1]
+        for initial_node in potential_initial_nodes_II:
+            #if initial_node.is_hub():
+            #    continue # sarebbe trattato come un potenziale tips di tipo I
+            # ^ Inutile se metto outgoing come 1
+            edge = initial_node.outgoing[0]
+            path = [edge]
+            curr = edge.destination
+            valid = True
+
+            while len(path) < max_len:
+                if curr.is_receiving_hub(): # tip rilevata
+                    break
+                if len(curr.outgoing) == 0:
+                    valid = False # Praticamente un mini contig inferiore a max_len
+                    break
+                if curr.is_hub():
+                    valid = False
+                    break
+                next_edge = curr.outgoing[0]
+                path.append(next_edge)
+                curr = next_edge.destination
+            
+            if valid and curr.is_receiving_hub():
+                yield Tip(initial_node, curr, path, 2)
+
+
+
+        
 
 
