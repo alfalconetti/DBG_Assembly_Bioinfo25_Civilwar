@@ -68,11 +68,7 @@ class Dbg:
 
     def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True):
         
-        def median_qual(qual_string):
-            from statistics import median
-            qual_list = [ord(x) - 33 for x in qual_string]
-            return median(qual_list)
-
+        from utils import median_qual
 
         def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False):
             for read_tup in reads:
@@ -259,7 +255,8 @@ class Dbg:
                 #se il percorso è valido e chiuso
                 if valid and curr.is_receiving_hub():
                     dest_seq = curr.seq
-                    if dest_seq not in candidates: candidates[dest_seq] = []
+                    if dest_seq not in candidates: 
+                        candidates[dest_seq] = []
                     candidates[dest_seq].append(path) #aggiorno dict
 
 

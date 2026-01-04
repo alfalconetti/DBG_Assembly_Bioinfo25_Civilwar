@@ -1,4 +1,4 @@
-import statistics
+from statistics import median
 
 class Bubble:
     def __init__(self, source_node, dest_node, paths):
@@ -10,7 +10,7 @@ class Bubble:
         if not path:
             return 0
         weights = [edge.weight for edge in path]
-        return statistics.median(weights)
+        return median(weights)
 
     def resolve(self, graph, cov_threshold, ratio_threshold=0.1):
         if len(self.paths) < 2: #se il nodo ricevente ha meno di due path... non è una bolla
