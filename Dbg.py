@@ -3,6 +3,7 @@ from node import Node
 from edge import Edge
 from parser import parser
 from utils import rc
+from bubble import Bubble
 
 class Dbg:
     # DUBBI: FILTERING PER BASSA QUALITY?
