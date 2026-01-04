@@ -221,113 +221,76 @@ class Dbg:
         print(f"removed {len(nodes_to_rm)} isolated nodes")
 
 
-    def _get_median_coverage(self, edges_list):
-        import statistics
-        if not edges_list: #calcolo mediana del peso di una lista di archi
-            return 0
-        if not isinstance(edges_list, list):
-            raise TypeError("edges_list must be list")
-        weights = [e.weight for e in edges_list]
-        return statistics.median(weights)
-
-    def _delete_path(self, path):
-        for edge in path: #path è una lista di edges
+    def rm_path_edges(self, path):
+        for edge in path:
             if edge in edge.source.outgoing:
                 edge.source.outgoing.remove(edge)
-
             if edge in edge.destination.incoming:
                 edge.destination.incoming.remove(edge)
-
             if edge.seq in self.edges:
-                del self.edges[edge.seq] #tolgo dal dizionario
+                del self.edges[edge.seq]
+
+    def detect_bubbles(self, max_len):
+        #generatore
+
+        forks = [n for n in self.nodes.values() if n.is_hub()] #lista hub
+
+        for fork_node in forks:
+            candidates = {}  #chiave: sequenza nodo arrivo, valore: lista path(lista di di edges)
 
 
+            for edge in fork_node.outgoing:
+                path = [edge]
+                curr = edge.destination
+                valid = True #diventa False quando il nodo è un hub o tip
 
-    def remove_bubbles(self, coverage_threshold=5):
+                while len(path) < max_len: #se è lungo piu di 2k+1, lo tengo
+                    if curr.is_receiving_hub():
+                        break #chiusura bolla
 
-        max_bubble_len = (self.k * 2) + 1
+                    if len(curr.outgoing) != 1:
+                        valid = False #tanto itero per la gestione delle bolle annidate
+                        break
 
+                    next_edge = curr.outgoing[0]
+                    path.append(next_edge) #aggiungo edge al path
+                    curr = next_edge.destination
+
+                #se il percorso è valido e chiuso
+                if valid and curr.is_receiving_hub():
+                    dest_seq = curr.seq
+                    if dest_seq not in candidates: candidates[dest_seq] = []
+                    candidates[dest_seq].append(path) #aggiorno dict
+
+
+            for dest_seq, paths in candidates.items():
+                if len(paths) > 1: #cioè, se quel nodo è davvero un hub, ha più path in entrata:
+                    dest_node = self.nodes[dest_seq]
+                    yield Bubble(fork_node, dest_node, paths) #restituisco l'oggetto bolla
+
+    def process_bubbles(self, cov_threshold=5):
+
+        max_len = (self.k * 2) + 1
         iteration = 1
-        total_popped = 0
 
-        while True:
-            #_bubble_pass ritorna il numero di bolle semplici risolte, itero fin quando non ritorna 0
-            popped_in_this_round = self._bubble_pass(max_bubble_len, coverage_threshold)
-            total_popped += popped_in_this_round
-            if popped_in_this_round == 0: #se non abbiamo trovato nulla grafo ok
+        while True: #itero, vengono risolte prima le bolle interne
+            popped_count = 0
+
+            bubbles = list(self.detect_bubbles(max_len))
+
+            if not bubbles:
+                break  #se non trovo bolle
+
+            for bubble in bubbles:
+                if bubble.resolve(self, cov_threshold):
+                    popped_count += 1
+
+            print(f"Iteration {iteration}: {popped_count} bubbles popped")
+            if popped_count == 0: #magari ci sono ancora bolle, ma non vengono risolte
                 break
             iteration += 1
 
-        self.rm_isolated_nodes() #rimozione nodi isolati
-        print(f"Total bubbles popped: {total_popped}")
-
-    def _bubble_pass(self, max_len, min_cov):
-        popped_count = 0
-
-        forks = [n for n in self.nodes.values() if n.is_hub()] #lista nodi hub
-
-        paths_to_delete = []
-
-        for fork_node in forks:
-
-            candidates = {} #chiave nodo arrivo, valore path
-
-            for edge in fork_node.outgoing: #itero sui rami uscenti dal nodo hub
-                path = [edge]
-                curr = edge.destination #nodo di arrivo dell'arco
-                valid = True #diventa False se arrivo ad un altro hub o nodo senza archi uscenti
-
-
-                while len(path) < max_len: #cammino fin quando è corto, se diventa lungo lo lascio
-                    if curr.is_receiving_hub(): #trovo un nodo con archi entranti > 1
-                        break
-
-                    if len(curr.outgoing) != 1: #è un tip oppure una bolla annidata, che risolvo nelle prossime iterazioni
-                        valid = False
-                        break
-
-                    next_edge = curr.outgoing[0] #cammino
-                    path.append(next_edge)
-                    curr = next_edge.destination
-
-                #se valido e chiuso, salvo nel dizionario
-                if valid and curr.is_receiving_hub():
-                    dest_key = curr.seq #sequenza del nodo ricevente
-                    if dest_key not in candidates: candidates[dest_key] = []
-                    candidates[dest_key].append(path) #se quella chiave avrà più path, è una bolla
-
-            for dest, paths in candidates.items():
-                if len(paths) > 1:  #bolla
-
-                    ranked_paths = [] #lista di tuple in cui salvo la mediana della copertura del path, path
-                    for p in paths: #p è una lista di edges
-                        cov = self._get_median_coverage(p)
-                        ranked_paths.append((cov, p))
-
-                    #ordino la lista di tuple in base al coverage
-                    ranked_paths.sort(key=lambda x: x[0], reverse=True)
-
-                    best_cov = ranked_paths[0][0]
-
-                    #controllo gli altri
-                    for i in range(1, len(ranked_paths)):
-                        loser_cov, loser_path = ranked_paths[i]
-
-                        is_error = False
-
-                        if loser_cov < min_cov: #controllo se è < del treshold
-                            is_error = True
-                        elif loser_cov < (best_cov * 0.1): #MA anche se è è 10 volte più piccolo del best_cov
-                            is_error = True
-
-                        if is_error:
-                            paths_to_delete.append(loser_path)
-                            popped_count += 1
-
-        for p in paths_to_delete:
-            self._delete_path(p) #rimuovo
-
-        return popped_count
+        self.rm_isolated_nodes()
 
 
 
