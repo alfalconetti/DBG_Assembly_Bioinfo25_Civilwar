@@ -4,3 +4,4 @@ class Edge:
         self.source = source
         self.destination = destination
         self.weight = 1
+        self.visited = False

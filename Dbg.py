@@ -166,10 +166,10 @@ class Dbg:
         print(f"Average coverage: {avg_coverage:.2f}X")
         
         
-    def write_contigs(self, output_filename="contigs.fasta"):
+    def write_contigs(self, output_filename="contigs.fasta", fork_in_hub = False):
         if not isinstance(output_filename, str):
             raise TypeError("output_filename must be string")
-        contigs = self.get_contigs()  #get_contigs da fare
+        contigs = self.assemble_contigs(fork_in_hub)  #get_contigs da fare
         try:
             with open(output_filename, "w") as f:
                 i=0
@@ -366,4 +366,53 @@ class Dbg:
         self.rm_isolated_nodes()
             
 
+    def assemble_contigs(self, fork_in_hub = False):
+        all_starts = [node for node in self.nodes.values() if len(node.incoming) == 0 and len(node.outgoing) == 1]
+        #print(f"Expected {len(all_starts)} contigs (must be deduplicated)")
+        contigs = []
+        for contig_start in all_starts:
+            start_edge = contig_start.outgoing[0]
+            next_node = start_edge.destination
+            contig = start_edge.seq
+            forked = False
+            while len(next_node.outgoing) != 0:
+                next_edge = next_node.outgoing[0]
+                if next_edge.visited:
+                    break
+                contig += next_edge.seq[-1]
+                next_edge.visited = True
+                next_node = next_edge.destination
+                if next_node.is_hub():
+                    if not fork_in_hub:
+                        contigs.append(contig)
+                        break
+                    else:
+                    # Proseguo quando trovo un hub conservando la testa e creando code diverse
+                        forked = True
+                        common_contig = contig
+                        for next_edges in next_node.outgoing:
+                            new_next_node = next_edges.destination
+                            new_contig = common_contig + next_edges.seq[-1]
+                            while len(new_next_node.outgoing) == 1: # Massimo un livello di ricorsione o perde di senso
+                                new_next_edge = new_next_node.outgoing[0]
+                                if new_next_edge.visited:
+                                    break
+                                new_contig += new_next_edge.seq[-1]
+                                new_next_edge.visited = True
+                                new_next_node = new_next_edge.destination
+                            contigs.append(new_contig)
+            if not forked:
+                contigs.append(contig)
+        # Reset visited per poter riusare l'assembly
+        for edge in self.edges.values():
+            edge.visited = False
+        # Deduplicazione contigs
+        deduplicated_contigs = []
+        checked = set()
+        for contig in contigs:
+            if contig not in checked:
+                deduplicated_contigs.append(contig)
+            checked.add(contig)
+            checked.add(rc(contig))
+        return deduplicated_contigs
 
