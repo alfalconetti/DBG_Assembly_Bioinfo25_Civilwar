@@ -8,10 +8,8 @@ from tip import Tip
 from kmer import kmer_generate
 from parser import parser
 from utils import rc, median_qual
+
 class Dbg:
-    # DUBBI: FILTERING PER BASSA QUALITY?
-
-
     # COSTRUZIONE
     ### Dizionario nodi e archi
     ### Arrivano le sequenze parsate
@@ -293,8 +291,6 @@ class Dbg:
         # Detection tips di tipo I
         potential_inital_nodes_I = [node for node in self.nodes.values() if node.is_hub()]
         for fork_node in potential_inital_nodes_I:
-            candidates = {}  #chiave: sequenza nodo arrivo, valore: lista path(lista di di edges)
-
             for edge in fork_node.outgoing:
                 path = [edge]
                 curr = edge.destination
@@ -314,15 +310,7 @@ class Dbg:
 
                 #se il percorso è valido e viene troncato prima di max_len
                 if valid and len(curr.outgoing) == 0:
-                    dest_seq = curr.seq
-                    if dest_seq not in candidates: 
-                        candidates[dest_seq] = []
-                    candidates[dest_seq].append(path) #aggiorno dict
-
-
-            for dest_seq, paths in candidates.items():
-                dest_node = self.nodes[dest_seq]
-                yield Tip(fork_node, dest_node, paths, 1) #restituisco l'oggetto Tip
+                    yield Tip(fork_node, curr, path, 1) #restituisco l'oggetto Tip
 
        
         # Detection tips di tipo II
@@ -353,7 +341,29 @@ class Dbg:
                 yield Tip(initial_node, curr, path, 2)
 
 
+    def process_tips(self, cov_threshold=5):
 
-        
+        max_len = (self.k * 2) + 1
+        iteration = 1
+
+        while True: #itero, vengono risolte prima le bolle interne
+            popped_count = 0
+            found_tips = False
+
+            for tip in self.detect_tips(max_len):
+                found_tips = True
+                if tip.resolve(self, cov_threshold):
+                    popped_count += 1
+
+            if not found_tips:
+                break
+
+            print(f"Iteration {iteration}: {popped_count} tips popped")
+            if popped_count == 0: #magari ci sono ancora tips ma non vanno eliminate
+                break
+            iteration += 1
+
+        self.rm_isolated_nodes()
+            
 
 

@@ -19,4 +19,16 @@ class Tip:
         else:
             raise ValueError(f"Invalid tip_type: {tip_type}. Must be 1 or 2")
     
-    
+    def get_path_coverage(self, path):
+        if not path:
+            return 0
+        weights = [edge.weight for edge in path]
+        return median(weights)    
+
+    def resolve(self, graph, cov_threshold):
+        popped = False
+        cov = self.get_path_coverage(self.path)
+        if cov < cov_threshold: #sotto treshold, da rimuovere
+            graph.rm_path_edges(self.path) #rimozione di quel path
+            popped = True
+        return popped
