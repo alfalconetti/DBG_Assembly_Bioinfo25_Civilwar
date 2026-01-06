@@ -43,6 +43,7 @@ class Dbg:
         self.k = k #lunghezza kmeri
         self.nodes = {}  #dizionario nodi
         self.edges = {}  #dizionario archi
+        self.contigs = []
         self.file_nameR1 = file_name
         if file_type in ['fa', 'fasta']:
             self.file_type = 'fasta'
@@ -135,7 +136,7 @@ class Dbg:
             
             if edge_to_delete in edge_to_delete.source.outgoing:
                 edge_to_delete.source.outgoing.remove(edge_to_delete) #rimuovo dalla lista outgoing l'arco
-            
+
             if edge_to_delete in edge_to_delete.destination.incoming:
                 edge_to_delete.destination.incoming.remove(edge_to_delete) #rimuovo dalla lista incoming l'arco
 
@@ -164,25 +165,37 @@ class Dbg:
         print(f"Nodes: {num_nodes}")
         print(f"Edges: {num_edges}")
         print(f"Average coverage: {avg_coverage:.2f}X")
-        
-        
-    def write_contigs(self, output_filename="contigs.fasta", fork_in_hub = False):
+
+
+    def write_contigs(self, output_filename="contigs.fasta", min_len=0):
         if not isinstance(output_filename, str):
             raise TypeError("output_filename must be string")
-        contigs = self.assemble_contigs(fork_in_hub)  #get_contigs da fare
+
+        if not self.contigs:
+            print("Warning! No contigs in memory")
+            return []
+
+        saved_lengths = []
+        count = 0
+
         try:
             with open(output_filename, "w") as f:
-                i=0
-                for contig in contigs:
-                    f.write(f">contig_{i+1} len={len(contig)}\n")
+                i = 0
+                for contig in self.contigs:
+                    if len(contig) < min_len:
+                        continue
+                    f.write(f">contig_{i + 1} len={len(contig)}\n")
                     f.write(f"{contig}\n")
-                    i+=1
-            print(f"saved file: {output_filename}")
-            return [len(c) for c in contigs] #lista lunghezze per n50
-            
+                    saved_lengths.append(len(contig))
+                    count += 1
+                    i += 1
+
+            print(f"File saved: {output_filename} ({count} contigs written, min_len={min_len})")
+            return saved_lengths
+
         except IOError as e:
-            print(f"Error writing to file {output_filename}: {e}")
-            return[]
+            print(f"Error writing file: {e}")
+            return []
 
     
     @staticmethod
@@ -227,7 +240,7 @@ class Dbg:
     def detect_bubbles(self, max_len):
         #generatore
 
-        forks = [n for n in self.nodes.values() if n.is_hub()] #lista hub
+        forks = [n for n in self.nodes.values() if n.is_hub()] #lista nodi hub
 
         for fork_node in forks:
             candidates = {}  #chiave: sequenza nodo arrivo, valore: lista path(lista di di edges)
@@ -277,7 +290,7 @@ class Dbg:
                 if bubble.resolve(self, cov_threshold):
                     popped_count += 1
 
-            if not found_bubbles:
+            if not found_bubbles: #sono tutte risolte
                 break
 
             print(f"Iteration {iteration}: {popped_count} bubbles popped")
@@ -384,7 +397,7 @@ class Dbg:
                 next_node = next_edge.destination
                 if next_node.is_hub():
                     if not fork_in_hub:
-                        contigs.append(contig)
+                        contigs.append(contig) #mi fermo quando arrivo ad hub
                         break
                     else:
                     # Proseguo quando trovo un hub conservando la testa e creando code diverse
