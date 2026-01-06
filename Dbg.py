@@ -29,19 +29,6 @@ class Dbg:
     # CAMMINO
     ### Parto casualmente, arrivo fino a un hub (outbound edges > 2)
     ### Se riesco risolvo, altrimenti mi fermo
-    self.graph_built = False
-    self.pruned_graph = False
-    self.bubbles_processed = False
-    self.tips_processed = False
-    self.isolated_contigs_removed = False
-    self.contigs_assembled = False
-    self.contigs_written = False
-    self.contigs_output_fasta = ''
-    self.nodes = {}  #dizionario nodi
-    self.edges = {}  #dizionario archi
-    self.contigs = []
-    self.bubbles = {}
-    self.tips = {}
 
     def __init__(self, k, file_name, file_type, paired = False, file_nameR2 = None, reverse_r2 = False):
         if not isinstance(k, int):
@@ -83,6 +70,20 @@ class Dbg:
                 print("You inputed file_nameR2 but paired is false or file_type is fasta. It will not be used")
             if reverse_r2:
                 print("You set reverse_r2 to True but paired is false. It will not be used")
+
+        self.graph_built = False
+        self.pruned_graph = False
+        self.bubbles_processed = False
+        self.tips_processed = False
+        self.isolated_contigs_removed = False
+        self.contigs_assembled = False
+        self.contigs_written = False
+        self.contigs_output_fasta = ''
+        self.nodes = {}  #dizionario nodi
+        self.edges = {}  #dizionario archi
+        self.contigs = []
+        self.bubbles = {}
+        self.tips = {}
 
     def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True):
         def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False):
@@ -490,3 +491,4 @@ class Dbg:
 
         self.contigs = deduplicated_contigs
         self.contigs_assembled = True
+        return deduplicated_contigs
