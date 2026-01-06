@@ -9,6 +9,8 @@ from kmer import kmer_generate
 from parser import parser
 from utils import rc, median_qual
 
+import warnings
+
 class Dbg:
     # COSTRUZIONE
     ### Dizionario nodi e archi
@@ -27,6 +29,20 @@ class Dbg:
     # CAMMINO
     ### Parto casualmente, arrivo fino a un hub (outbound edges > 2)
     ### Se riesco risolvo, altrimenti mi fermo
+    self.graph_built = False
+    self.pruned_graph = False
+    self.bubbles_processed = False
+    self.tips_processed = False
+    self.isolated_contigs_removed = False
+    self.contigs_assembled = False
+    self.contigs_written = False
+    self.contigs_output_fasta = ''
+    self.nodes = {}  #dizionario nodi
+    self.edges = {}  #dizionario archi
+    self.contigs = []
+    self.bubbles = {}
+    self.tips = {}
+
     def __init__(self, k, file_name, file_type, paired = False, file_nameR2 = None, reverse_r2 = False):
         if not isinstance(k, int):
             raise TypeError('k parameter must be integer')
@@ -40,10 +56,11 @@ class Dbg:
             raise TypeError("reverse_r2 must be boolean")
         if file_type not in ['fa', 'fq', 'fasta', 'fastq']:
             raise IOError("file_type must be one of the following: ['fa', 'fq', 'fasta', 'fastq']")
+        if not (3 <= k <= 101):
+            raise ValueError(f"k must be between 3 and 101. Received: {k}")
+        if k % 2 == 0:
+            warnings.warn("k is even. Using an odd k is highly recommended to avoid topological complications")
         self.k = k #lunghezza kmeri
-        self.nodes = {}  #dizionario nodi
-        self.edges = {}  #dizionario archi
-        self.contigs = []
         self.file_nameR1 = file_name
         if file_type in ['fa', 'fasta']:
             self.file_type = 'fasta'
@@ -66,7 +83,6 @@ class Dbg:
                 print("You inputed file_nameR2 but paired is false or file_type is fasta. It will not be used")
             if reverse_r2:
                 print("You set reverse_r2 to True but paired is false. It will not be used")
-
 
     def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True):
         def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False):
@@ -100,7 +116,7 @@ class Dbg:
         if self.paired:
             reads2 = parser(file_name=self.file_nameR2, file_type=self.file_type, quality= quality_check) #generator
             put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2, use_both_strands = use_both_strands)
-
+        self.graph_built = True
         
     def add_read(self, read, use_both_strands):
         for kmer in kmer_generate(read, self.k, reverse= use_both_strands):
@@ -125,6 +141,8 @@ class Dbg:
 
     
     def prune_graph(self, threshold=2):
+        if not self.graph_built:
+            raise RuntimeError("You cannot prune a graph if it does not exist")
         kmers_to_remove = []
         for kmer, edge in self.edges.items():
             if edge.weight < threshold:
@@ -145,8 +163,8 @@ class Dbg:
             count += 1
         
         print(f"{count} edges removed")
-        self.rm_isolated_nodes()
-        
+        self._rm_isolated_nodes()
+        self.pruned_graph = True
 
     def get_graph_stats(self):
     
@@ -170,9 +188,10 @@ class Dbg:
     def write_contigs(self, output_filename="contigs.fasta", min_len=0):
         if not isinstance(output_filename, str):
             raise TypeError("output_filename must be string")
-
-        if not self.contigs:
-            print("Warning! No contigs in memory")
+        if not isinstance(min_len, int):
+            raise TypeError("min_len must be string")
+        if not self.contigs_assembled:
+            warnings.warn("Warning! No contigs in memory")
             return []
 
         saved_lengths = []
@@ -191,6 +210,8 @@ class Dbg:
                     i += 1
 
             print(f"File saved: {output_filename} ({count} contigs written, min_len={min_len})")
+            self.contigs_written = True
+            self.contigs_output_fasta = output_filename
             return saved_lengths
 
         except IOError as e:
@@ -216,7 +237,7 @@ class Dbg:
                 return length #n50
 
 
-    def rm_isolated_nodes(self):
+    def _rm_isolated_nodes(self):
         nodes_to_rm = []
         for kmer, node in self.nodes.items():
             if len(node.incoming) == 0 and len(node.outgoing) == 0:
@@ -228,7 +249,7 @@ class Dbg:
         print(f"removed {len(nodes_to_rm)} isolated nodes")
 
 
-    def rm_path_edges(self, path):
+    def _rm_path_edges(self, path):
         for edge in path:
             if edge in edge.source.outgoing:
                 edge.source.outgoing.remove(edge)
@@ -237,7 +258,7 @@ class Dbg:
             if edge.seq in self.edges:
                 del self.edges[edge.seq]
 
-    def detect_bubbles(self, max_len):
+    def _detect_bubbles(self, max_len):
         #generatore
 
         forks = [n for n in self.nodes.values() if n.is_hub()] #lista nodi hub
@@ -285,7 +306,7 @@ class Dbg:
             popped_count = 0
             found_bubbles = False
 
-            for bubble in self.detect_bubbles(max_len):
+            for bubble in self._detect_bubbles(max_len):
                 found_bubbles = True
                 if bubble.resolve(self, cov_threshold):
                     popped_count += 1
@@ -298,9 +319,10 @@ class Dbg:
                 break
             iteration += 1
 
-        self.rm_isolated_nodes()
+        self._rm_isolated_nodes()
+        self.bubbles_processed = True
 
-    def detect_tips(self, max_len):
+    def _detect_tips(self, max_len):
         # Detection tips di tipo I
         potential_inital_nodes_I = [node for node in self.nodes.values() if node.is_hub()]
         for fork_node in potential_inital_nodes_I:
@@ -363,7 +385,7 @@ class Dbg:
             popped_count = 0
             found_tips = False
 
-            for tip in self.detect_tips(max_len):
+            for tip in self._detect_tips(max_len):
                 found_tips = True
                 if tip.resolve(self, cov_threshold):
                     popped_count += 1
@@ -376,8 +398,8 @@ class Dbg:
                 break
             iteration += 1
 
-        self.rm_isolated_nodes()
-            
+        self._rm_isolated_nodes()
+        self.tips_processed = True
 
     def assemble_contigs(self, fork_in_hub = False):
         all_starts = [node for node in self.nodes.values() if len(node.incoming) == 0 and len(node.outgoing) == 1]
@@ -427,5 +449,6 @@ class Dbg:
                 deduplicated_contigs.append(contig)
             checked.add(contig)
             checked.add(rc(contig))
-        return deduplicated_contigs
 
+        self.contigs = deduplicated_contigs
+        self.contigs_assembled = True
