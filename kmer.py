@@ -1,4 +1,5 @@
 from utils import rc
+
 def kmer_generate(sequence, k, reverse = False):
     """
     

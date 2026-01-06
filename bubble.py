@@ -38,7 +38,7 @@ class Bubble:
                 should_remove = True
 
             if should_remove:
-                graph.rm_path_edges(loser_path) #rimozione di quel path
+                graph._rm_path_edges(loser_path) #rimozione di quel path
                 popped = True
 
         return popped

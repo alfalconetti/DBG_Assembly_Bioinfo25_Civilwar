@@ -298,6 +298,8 @@ class Dbg:
                     yield Bubble(fork_node, dest_node, paths) #restituisco l'oggetto bolla
 
     def process_bubbles(self, cov_threshold=5):
+        if not self.graph_built:
+            raise RuntimeError("You cannot process bubbles in a graph if it does not exist")
 
         max_len = (self.k * 2) + 1
         iteration = 1
@@ -308,7 +310,7 @@ class Dbg:
 
             for bubble in self._detect_bubbles(max_len):
                 found_bubbles = True
-                if bubble.resolve(self, cov_threshold):
+                if bubble._resolve(self, cov_threshold):
                     popped_count += 1
 
             if not found_bubbles: #sono tutte risolte
@@ -316,6 +318,8 @@ class Dbg:
 
             print(f"Iteration {iteration}: {popped_count} bubbles popped")
             if popped_count == 0: #magari ci sono ancora bolle, ma non vengono risolte
+                for bubble in self._detect_bubbles(max_len):
+                    self.bubbles[bubble.source_node.seq] = bubble
                 break
             iteration += 1
 
@@ -377,67 +381,101 @@ class Dbg:
 
 
     def process_tips(self, cov_threshold=5):
-
+        if not self.graph_built:
+            raise RuntimeError("You cannot process tips in a graph if it does not exist")
         max_len = (self.k * 2) + 1
         iteration = 1
 
         while True: #itero, vengono risolte prima le bolle interne
-            popped_count = 0
+            removed_count = 0
             found_tips = False
 
             for tip in self._detect_tips(max_len):
                 found_tips = True
-                if tip.resolve(self, cov_threshold):
-                    popped_count += 1
+                if tip._resolve(self, cov_threshold):
+                    removed_count += 1
 
             if not found_tips:
                 break
 
-            print(f"Iteration {iteration}: {popped_count} tips popped")
-            if popped_count == 0: #magari ci sono ancora tips ma non vanno eliminate
+            print(f"Iteration {iteration}: {removed_count} tips popped")
+            if removed_count == 0: #magari ci sono ancora tips ma non vanno eliminate
+                for tip in self._detect_tips(max_len):
+                    self.tips[tip.initial_node.seq] = tip
                 break
             iteration += 1
 
         self._rm_isolated_nodes()
         self.tips_processed = True
 
+    def _walk_linear(self, start_edge):
+        start_edge.visited = True
+        seq = start_edge.seq
+        curr = start_edge.destination
+        # Continua solo se c'è un'unica uscita (niente hub)
+        while len(curr.outgoing) == 1:
+            edge = curr.outgoing[0]
+            if edge.visited:
+                break
+            edge.visited = True
+            seq += edge.seq[-1]
+            curr = edge.destination
+        return seq, curr
+
+
     def assemble_contigs(self, fork_in_hub = False):
-        all_starts = [node for node in self.nodes.values() if len(node.incoming) == 0 and len(node.outgoing) == 1]
-        #print(f"Expected {len(all_starts)} contigs (must be deduplicated)")
+        if not self.graph_built:
+            raise RuntimeError("You cannot assemble contigs in a graph if it does not exist")
+        if not self.bubbles_processed:
+            warnings.warn("You are assembling contigs before processing bubbles. This may cause topological complications and inaccuracies")
+            if fork_in_hub:
+                warnings.warn("Using fork_in_hub without processing bubbles first is strongly discouraged")
+        if not self.tips_processed:
+            warnings.warn("You are assembling contigs before processing tips. This may cause topological complications and inaccuracies")
+        if not self.isolated_contigs_removed:
+            warnings.warn("You are assembling contigs before removing isolated contigs. This may create small unrealistic contigs")
+        
+        all_starts = [node for node in self.nodes.values() if len(node.incoming) == 0 and len(node.outgoing) > 0]
+        if not fork_in_hub:
+            internal_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub()]
+            all_starts += internal_hubs
         contigs = []
         for contig_start in all_starts:
-            start_edge = contig_start.outgoing[0]
-            next_node = start_edge.destination
-            contig = start_edge.seq
-            forked = False
-            while len(next_node.outgoing) != 0:
-                next_edge = next_node.outgoing[0]
-                if next_edge.visited:
-                    break
-                contig += next_edge.seq[-1]
-                next_edge.visited = True
-                next_node = next_edge.destination
-                if next_node.is_hub():
-                    if not fork_in_hub:
-                        contigs.append(contig) #mi fermo quando arrivo ad hub
-                        break
+            for start_edge in contig_start.outgoing:
+                if start_edge.visited:
+                    continue
+                contig, next_node = self._walk_linear(start_edge)
+                forked = False
+                if next_node.is_hub() and fork_in_hub:
+                    forked = True
+                    common_contig = contig
+                    if next_node.seq in self.bubbles:
+                        bubble_to_assemble = self.bubbles[next_node.seq] 
+                        for path in bubble_to_assemble.paths:
+                            for edge in path:
+                                edge.visited = True
+                        alternative_paths = list(bubble_to_assemble._get_seq_from_path())
+                        new_start_node = bubble_to_assemble.dest_node
+                        if len(new_start_node.outgoing) == 0:
+                            for alt_path in alternative_paths:
+                                contigs.append(common_contig + alt_path[self.k-1:])
+                        else:
+                            for new_start_edge in new_start_node.outgoing:
+                                if new_start_edge.visited:
+                                    continue
+                                new_contig, next_node = self._walk_linear(new_start_edge)
+                                for alt_path in alternative_paths:
+                                    contigs.append(common_contig + alt_path[self.k-1:] + new_contig[self.k-1:])
                     else:
-                    # Proseguo quando trovo un hub conservando la testa e creando code diverse
-                        forked = True
-                        common_contig = contig
-                        for next_edges in next_node.outgoing:
-                            new_next_node = next_edges.destination
-                            new_contig = common_contig + next_edges.seq[-1]
-                            while len(new_next_node.outgoing) == 1: # Massimo un livello di ricorsione o perde di senso
-                                new_next_edge = new_next_node.outgoing[0]
-                                if new_next_edge.visited:
-                                    break
-                                new_contig += new_next_edge.seq[-1]
-                                new_next_edge.visited = True
-                                new_next_node = new_next_edge.destination
-                            contigs.append(new_contig)
-            if not forked:
-                contigs.append(contig)
+                        new_start_node = next_node
+                        for new_start_edge in new_start_node.outgoing:
+                            if new_start_edge.visited:
+                                continue
+                            new_contig, next_node = self._walk_linear(new_start_edge)
+                            contigs.append(common_contig + new_contig[self.k-1:])
+                if not forked:
+                    contigs.append(contig)
+
         # Reset visited per poter riusare l'assembly
         for edge in self.edges.values():
             edge.visited = False
