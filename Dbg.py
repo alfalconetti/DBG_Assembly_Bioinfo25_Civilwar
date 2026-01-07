@@ -428,12 +428,12 @@ class Dbg:
                 continue
 
             island_nodes = set()
-            queue = [self.nodes[start_node_seq]] #lista con oggetto nodo
+            to_visit = [self.nodes[start_node_seq]] #lista con oggetto nodo
             island_nodes.add(start_node_seq)
             visited_nodes.add(start_node_seq)  #nodo visitato
 
-            while queue:
-                curr_node = queue.pop(0) #estragggo nodo
+            while to_visit:
+                curr_node = to_visit.pop(0) #estragggo nodo
 
                 #guardo vicini sia in entrata che in uscita
                 all_neighbors = []
@@ -446,7 +446,7 @@ class Dbg:
                     if neighbor.seq not in island_nodes:
                         island_nodes.add(neighbor.seq)
                         visited_nodes.add(neighbor.seq)
-                        queue.append(neighbor)
+                        to_visit.append(neighbor)
 
 
             #Formula: L = k + (N - 1)
