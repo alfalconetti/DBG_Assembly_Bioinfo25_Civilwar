@@ -44,7 +44,7 @@ class Bubble:
         return popped
 
     def _get_seq_from_path(self):
-        for path in self.paths:
+        for path in self.paths: #generatore di sequenza e lista pesi per ciasun path(lista edge)
             sequence = path[0].seq
             path_weights = [path[0].weight]
             for edge in path[1:]:

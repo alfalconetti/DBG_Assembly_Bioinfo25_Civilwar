@@ -537,7 +537,7 @@ class Dbg:
         
         all_starts = [node for node in self.nodes.values() if len(node.incoming) == 0 and len(node.outgoing) > 0]
         if not fork_in_hub:
-            internal_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub()]
+            internal_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub()] #considera anche gli hub come punti di inzio
             all_starts += internal_hubs
         contigs = []
         contigs_forked_in_hub = False
@@ -551,39 +551,39 @@ class Dbg:
                     contigs_forked_in_hub = True
                     forked = True
                     common_contig = contig
-                    if next_node.seq in self.bubbles:
-                        bubble_to_assemble = self.bubbles[next_node.seq] 
-                        for path in bubble_to_assemble.paths:
-                            for edge in path:
+                    if next_node.seq in self.bubbles: #è l'inizio di una bolla
+                        bubble_to_assemble = self.bubbles[next_node.seq] #prendo la bolla
+                        for path in bubble_to_assemble.paths: #per ciasun path della bolla
+                            for edge in path: #per ciascun edge nel path
                                 edge.visited = True
-                        alternative_paths = list(bubble_to_assemble._get_seq_from_path())
+                        alternative_paths = list(bubble_to_assemble._get_seq_from_path()) #lista di tuple con sequenza e lista pesi
                         new_start_node = bubble_to_assemble.dest_node
-                        if len(new_start_node.outgoing) == 0:
+                        if len(new_start_node.outgoing) == 0: #cioè, se non continua dopo la chiusura della bolla
                             for alt_path in alternative_paths:
                                 whole_path_weights = walk_weights + alt_path[1][self.k - 1:]
-                                contigs.append((common_contig + alt_path[0][self.k-1:], "forked_in_hub(whole_bubble)", median(whole_path_weights)))
+                                contigs.append((common_contig + alt_path[0][self.k-1:], "forked_in_hub (whole_bubble)", median(whole_path_weights)))
                         else:
                             for new_start_edge in new_start_node.outgoing:
                                 if new_start_edge.visited:
                                     continue
-                                new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge)
+                                new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge) #continua a camminare dopo la chiusura della bolla
                                 for alt_path in alternative_paths:
                                     whole_path_weights = walk_weights + alt_path[1][self.k-1:] + new_walk_weights[self.k - 1:]
                                     contigs.append((common_contig + alt_path[self.k-1:] + new_contig[self.k-1:], "forked_in_hub_(bubble)", median(whole_path_weights)))
-                    else:
+                    else: #non è una bolla
                         new_start_node = next_node
                         for new_start_edge in new_start_node.outgoing:
                             if new_start_edge.visited:
                                 continue
                             new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge)
                             whole_path_weights = walk_weights + new_walk_weights[self.k - 1:]
-                            contigs.append((common_contig + new_contig[self.k-1:], "forked_in_hub(no_bubble)", median(whole_path_weights)))
-                if not forked:
+                            contigs.append((common_contig + new_contig[self.k-1:], "forked_in_hub (no_bubble)", median(whole_path_weights)))
+                if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
                     contigs.append((contig, "simple", median(walk_weights)))
         not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
         if len(not_visited_edges) == 0:
             print("All edges have been visited. Eulerian path(s) found")
-        else:
+        else: #se non sono stati visitati tutti gli edge, vuol dire che c'è un path circolare
             print(f"There are still {len(not_visited_edges)} edges not visited. Starting circular contigs search.")
             if fork_in_hub:
                 print("Fork in hub is not available for circular search")
