@@ -12,7 +12,7 @@ class Bubble:
         weights = [edge.weight for edge in path]
         return median(weights)
 
-    def resolve(self, graph, cov_threshold, ratio_threshold=0.1):
+    def _resolve(self, graph, cov_threshold, ratio_threshold=0.1):
         if len(self.paths) < 2: #se il nodo ricevente ha meno di due path... non è una bolla
             return False
 

@@ -320,7 +320,7 @@ class Dbg:
             print(f"Iteration {iteration}: {popped_count} bubbles popped")
             if popped_count == 0: #magari ci sono ancora bolle, ma non vengono risolte
                 for bubble in self._detect_bubbles(max_len):
-                    self.bubbles[bubble.source_node.seq] = bubble
+                    self.bubbles[bubble.source.seq] = bubble
                 break
             iteration += 1
 
@@ -408,6 +408,74 @@ class Dbg:
 
         self._rm_isolated_nodes()
         self.tips_processed = True
+
+
+    def rm_short_islands(self):
+
+        min_len = (self.k * 2) + 1
+
+        visited_nodes = set() #set nodi visti
+        nodes_to_delete = set() #set nodi da cancellare
+        deleted_islands = 0
+
+        #itero su tutti i nodi del grafo, potrebbero esserci isole circolari con len(self.incoming)!=0
+        for start_node_seq in list(self.nodes.keys()):
+            if start_node_seq in visited_nodes:
+                continue
+
+            if start_node_seq in nodes_to_delete:
+                continue
+
+            island_nodes = set()
+            queue = [self.nodes[start_node_seq]] #lista con oggetto nodo
+            island_nodes.add(start_node_seq)
+            visited_nodes.add(start_node_seq)  #nodo visitato
+
+            while queue:
+                curr_node = queue.pop(0) #estragggo nodo
+
+                #guardo vicini sia in entrata che in uscita
+                all_neighbors = []
+                for edge in curr_node.outgoing:
+                    all_neighbors.append(edge.destination)
+                for edge in curr_node.incoming:
+                    all_neighbors.append(edge.source)
+
+                for neighbor in all_neighbors:
+                    if neighbor.seq not in island_nodes:
+                        island_nodes.add(neighbor.seq)
+                        visited_nodes.add(neighbor.seq)
+                        queue.append(neighbor)
+
+
+            #Formula: L = k + (N - 1)
+            num_nodes = len(island_nodes)
+            seq_len_bp = self.k + (num_nodes - 1)
+
+
+            if seq_len_bp < min_len:
+                nodes_to_delete.update(island_nodes)
+                deleted_islands += 1
+
+        #cancellazione
+        if nodes_to_delete:
+            #rimozione archi
+            edges_to_remove = [k for k, e in self.edges.items()
+                               if e.source.seq in nodes_to_delete or e.destination.seq in nodes_to_delete]
+            for k in edges_to_remove:
+                del self.edges[k]
+
+            #rimozione nodi
+            for k in nodes_to_delete:
+                if k in self.nodes:
+                    del self.nodes[k]
+
+            print(
+                f"Island Removal: Deleted {deleted_islands} short islands (< {min_len}bp). Removed {len(nodes_to_delete)} nodes.")
+        else:
+            print("Island Removal: No short islands found.")
+        self.isolated_contigs_removed = True
+
 
     def _walk_linear(self, start_edge):
         start_edge.visited = True
