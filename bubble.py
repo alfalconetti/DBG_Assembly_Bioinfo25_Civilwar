@@ -50,4 +50,4 @@ class Bubble:
             for edge in path[1:]:
                 sequence += edge.seq[-1]
                 path_weights.append(edge.weight)
-        yield sequence, path_weights
+            yield sequence, path_weights

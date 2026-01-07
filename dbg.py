@@ -90,6 +90,7 @@ class Dbg:
 
     def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True):
         def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False):
+            reads_discarded = 0
             for read_tup in reads:
                 read = read_tup[0]
                 if reverse_complement:
@@ -98,9 +99,13 @@ class Dbg:
                     read_qual = read_tup[1]
                     if median_qual(read_qual) > quality_threshold:
                         self.add_read(read, use_both_strands = use_both_strands)
+                    else:
+                        reads_discarded += 1
                 else:
                     self.add_read(read, use_both_strands = use_both_strands)
-    
+            if quality_check:
+                print(f"Discarded {reads_discarded} reads due to low median quality")
+            return reads_discarded
 
         if not isinstance(quality_check, bool):
             raise TypeError("quality_check must be boolean")
@@ -505,23 +510,6 @@ class Dbg:
             curr = edge.destination
         return seq, curr, walk_weights
 
-    def _walk_circular(self, start_edge):
-        start_edge.visited = True
-        seq = start_edge.seq
-        curr = start_edge.destination
-        walk_weights = [start_edge.weight]
-        # Continua solo se c'è un'unica uscita (niente hub)
-        while len(curr.outgoing) == 1:
-            edge = curr.outgoing[0]
-            if edge.visited:
-                circular_detected = True
-                break
-            edge.visited = True
-            seq += edge.seq[-1]
-            walk_weights.append(edge.weight)
-            curr = edge.destination
-        return seq, curr, circular_detected, walk_weights
-
 
     def assemble_contigs(self, fork_in_hub = False):
         if not self.graph_built:
@@ -559,27 +547,55 @@ class Dbg:
                         alternative_paths = list(bubble_to_assemble._get_seq_from_path()) #lista di tuple con sequenza e lista pesi
                         new_start_node = bubble_to_assemble.dest_node
                         if len(new_start_node.outgoing) == 0: #cioè, se non continua dopo la chiusura della bolla
+                            contig_tag = "circular_bubble_resolved" if contig_start == new_start_node else "linear_bubble_resolved_ending"
                             for alt_path in alternative_paths:
                                 whole_path_weights = walk_weights + alt_path[1][self.k - 1:]
-                                contigs.append((common_contig + alt_path[0][self.k-1:], "forked_in_hub (whole_bubble)", median(whole_path_weights)))
+                                contigs.append((common_contig + alt_path[0][self.k-1:], contig_tag, median(whole_path_weights)))
                         else:
                             for new_start_edge in new_start_node.outgoing:
                                 if new_start_edge.visited:
                                     continue
-                                new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge) #continua a camminare dopo la chiusura della bolla
+                                new_contig, new_next_node, new_walk_weights = self._walk_linear(new_start_edge) #continua a camminare dopo la chiusura della bolla
+                                if new_next_node == next_node:
+                                    contig_tag = "lariat_with_bubble"
+                                elif contig_start == new_next_node:
+                                    contig_tag = "circular_with_bubble"
+                                else:
+                                    contig_tag = "linear_bubble_resolved_extended"
                                 for alt_path in alternative_paths:
                                     whole_path_weights = walk_weights + alt_path[1][self.k-1:] + new_walk_weights[self.k - 1:]
-                                    contigs.append((common_contig + alt_path[self.k-1:] + new_contig[self.k-1:], "forked_in_hub_(bubble)", median(whole_path_weights)))
+                                    contigs.append((common_contig + alt_path[self.k-1:] + new_contig[self.k-1:], contig_tag , median(whole_path_weights)))
                     else: #non è una bolla
                         new_start_node = next_node
                         for new_start_edge in new_start_node.outgoing:
                             if new_start_edge.visited:
                                 continue
-                            new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge)
+                            new_contig, new_next_node, new_walk_weights = self._walk_linear(new_start_edge)
                             whole_path_weights = walk_weights + new_walk_weights[self.k - 1:]
-                            contigs.append((common_contig + new_contig[self.k-1:], "forked_in_hub (no_bubble)", median(whole_path_weights)))
+                            if new_next_node == next_node:
+                                contig_tag = "lariat_through_hub"
+                            elif new_next_node == contig_start:
+                                contig_tag = "circular_through_hub"
+                            else:
+                                contig_tag = "linear_through_hub"
+                            contigs.append((common_contig + new_contig[self.k-1:], contig_tag, median(whole_path_weights)))
                 if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
-                    contigs.append((contig, "simple", median(walk_weights)))
+                    contig_tag = "circular_simple" if contig_start == next_node else "linear_simple" #potrebbe essere un circolare che parte da un hub interno
+                    contigs.append((contig, contig_tag, median(walk_weights)))
+
+        if fork_in_hub:
+            # hubs restanti poiché fork_in_hub si ferma dopo un livello
+            remaining_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub() and any(not edge.visited for edge in node.outgoing)]
+            while len(remaining_hubs) != 0:
+                for contig_start in remaining_hubs:
+                    for start_edge in contig_start.outgoing:
+                        if start_edge.visited:
+                            continue
+                        contig, next_node, walk_weights = self._walk_linear(start_edge)
+                        contig_tag = "circular_fork_hub_residual" if next_node == contig_start else "linear_fork_hub_residual"
+                        contigs.append((contig, contig_tag, median(walk_weights)))
+                remaining_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub() and any(not edge.visited for edge in node.outgoing)]
+
         not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
         if len(not_visited_edges) == 0:
             print("All edges have been visited. Eulerian path(s) found")
@@ -588,19 +604,21 @@ class Dbg:
             if fork_in_hub:
                 print("Fork in hub is not available for circular search")
             circular_contigs = 0
-            partial_circular_contigs = 0
+            unknown_contigs = 0
             while not_visited_edges:
                 start_edge = not_visited_edges[0]
-                circ_contig, next_node, circular_detected, walk_weights = self._walk_circular(start_edge)
-                contig_tag = "circular" if circular_detected else "part_of_circular"
+                start_node = start_edge.source
+                circ_contig, next_node, walk_weights = self._walk_linear(start_edge)
+                contig_tag = "circular_isolated" if start_node == next_node else "unknown_contig_type"
                 contigs.append((circ_contig, contig_tag, median(walk_weights)))
-                if circular_detected:
+                if contig_tag == "circular_isolated":
                     circular_contigs += 1
                 else:
-                    partial_circular_contigs += 1
+                    print(f"Contig found with unknown topology {len(circ_contig)}")
+                    unknown_contigs += 1
                 not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
             print(f"All edges have been now visited. Saved {circular_contigs} circular contigs")
-            print(f"Saved {partial_circular_contigs} contigs probably part of a circular")
+            print(f"Saved {unknown_contigs} contigs of unknown topology")
         # Reset visited per poter riusare l'assembly
         for edge in self.edges.values():
             edge.visited = False
