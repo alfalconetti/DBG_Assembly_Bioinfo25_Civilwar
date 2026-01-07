@@ -77,6 +77,7 @@ class Dbg:
         self.tips_processed = False
         self.isolated_contigs_removed = False
         self.contigs_assembled = False
+        self.contigs_forked_in_hub = False
         self.contigs_written = False
         self.contigs_output_fasta = ''
         self.nodes = {}  #dizionario nodi
@@ -202,11 +203,11 @@ class Dbg:
             with open(output_filename, "w") as f:
                 i = 0
                 for contig in self.contigs:
-                    if len(contig) < min_len:
+                    if len(contig[0]) < min_len:
                         continue
-                    f.write(f">contig_{i + 1} len={len(contig)}\n")
-                    f.write(f"{contig}\n")
-                    saved_lengths.append(len(contig))
+                    f.write(f">contig_{i + 1} len={len(contig[0])} type={contig[1]}\n")
+                    f.write(f"{contig[0]}\n")
+                    saved_lengths.append(len(contig[0]))
                     count += 1
                     i += 1
 
@@ -475,6 +476,7 @@ class Dbg:
         else:
             print("Island Removal: No short islands found.")
         self.isolated_contigs_removed = True
+        return deleted_islands
 
 
     def _walk_linear(self, start_edge):
@@ -491,6 +493,20 @@ class Dbg:
             curr = edge.destination
         return seq, curr
 
+    def _walk_circular(self, start_edge):
+        start_edge.visited = True
+        seq = start_edge.seq
+        curr = start_edge.destination
+        # Continua solo se c'è un'unica uscita (niente hub)
+        while len(curr.outgoing) == 1:
+            edge = curr.outgoing[0]
+            if edge.visited:
+                circular_detected = True
+                break
+            edge.visited = True
+            seq += edge.seq[-1]
+            curr = edge.destination
+        return seq, curr, circular_detected
 
     def assemble_contigs(self, fork_in_hub = False):
         if not self.graph_built:
@@ -509,6 +525,7 @@ class Dbg:
             internal_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub()]
             all_starts += internal_hubs
         contigs = []
+        contigs_forked_in_hub = False
         for contig_start in all_starts:
             for start_edge in contig_start.outgoing:
                 if start_edge.visited:
@@ -516,6 +533,7 @@ class Dbg:
                 contig, next_node = self._walk_linear(start_edge)
                 forked = False
                 if next_node.is_hub() and fork_in_hub:
+                    contigs_forked_in_hub
                     forked = True
                     common_contig = contig
                     if next_node.seq in self.bubbles:
@@ -527,36 +545,61 @@ class Dbg:
                         new_start_node = bubble_to_assemble.dest_node
                         if len(new_start_node.outgoing) == 0:
                             for alt_path in alternative_paths:
-                                contigs.append(common_contig + alt_path[self.k-1:])
+                                contigs.append((common_contig + alt_path[self.k-1:], "forked_in_hub(whole_bubble)"))
                         else:
                             for new_start_edge in new_start_node.outgoing:
                                 if new_start_edge.visited:
                                     continue
                                 new_contig, next_node = self._walk_linear(new_start_edge)
                                 for alt_path in alternative_paths:
-                                    contigs.append(common_contig + alt_path[self.k-1:] + new_contig[self.k-1:])
+                                    contigs.append((common_contig + alt_path[self.k-1:] + new_contig[self.k-1:], "forked_in_hub_(bubble)"))
                     else:
                         new_start_node = next_node
                         for new_start_edge in new_start_node.outgoing:
                             if new_start_edge.visited:
                                 continue
                             new_contig, next_node = self._walk_linear(new_start_edge)
-                            contigs.append(common_contig + new_contig[self.k-1:])
+                            contigs.append((common_contig + new_contig[self.k-1:], "forked_in_hub(no_bubble)"))
                 if not forked:
-                    contigs.append(contig)
-
+                    contigs.append((contig, "simple"))
+        not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
+        if len(not_visited_edges) == 0:
+            print("All edges have been visited. Eulerian path(s) found")
+        else:
+            print(f"There are still {len(not_visited_edges)} edges not visited. Starting circular contigs search.")
+            if fork_in_hub:
+                print("Fork in hub is not available for circular search")
+            circular_contigs = []
+            partial_circular_contigs = []
+            while not_visited_edges:
+                start_edge = not_visited_edges[0]
+                circ_contig, next_node, circular_detected = self._walk_circular(start_edge)
+                if circular_detected:
+                    circular_contigs.append(circ_contig)
+                else:
+                    partial_circular_contigs.append(circ_contig)
+                not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
+            print(f"All edges have been now visited. Saved {len(circular_contigs)} circular contigs")
+            print(f"Saved {len(partial_circular_contigs)} contigs probably part of a circular")
+            for circ_contig in circular_contigs:
+                contigs.append((circ_contig, "circular"))
+            for part_circ_contig in partial_circular_contigs:
+                contigs.append((part_circ_contig, "part_of_circular"))
         # Reset visited per poter riusare l'assembly
         for edge in self.edges.values():
             edge.visited = False
         # Deduplicazione contigs
         deduplicated_contigs = []
         checked = set()
-        for contig in contigs:
+        for contig_tup in contigs:
+            contig = contig_tup[0]
             if contig not in checked:
-                deduplicated_contigs.append(contig)
+                deduplicated_contigs.append(contig_tup)
             checked.add(contig)
             checked.add(rc(contig))
-
+        self.contigs_forked_in_hub = contigs_forked_in_hub
         self.contigs = deduplicated_contigs
         self.contigs_assembled = True
+        if contigs_forked_in_hub:
+            print("Some contigs have been forked in hub. N50 may not be totally accurate")
         return deduplicated_contigs
