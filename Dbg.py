@@ -410,7 +410,7 @@ class Dbg:
         self.tips_processed = True
 
 
-    def rm_short_islands(self):
+    def process_short_islands(self):
 
         min_len = (self.k * 2) + 1
 
