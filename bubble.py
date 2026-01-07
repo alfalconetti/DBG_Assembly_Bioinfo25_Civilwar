@@ -42,3 +42,12 @@ class Bubble:
                 popped = True
 
         return popped
+
+    def _get_seq_from_path(self):
+        for path in self.paths:
+            sequence = path[0].seq
+            path_weights = [path[0].weight]
+            for edge in path[1:]:
+                sequence += edge.seq[-1]
+                path_weights.append(edge.weight)
+        yield sequence, path_weights

@@ -9,6 +9,8 @@ from kmer import kmer_generate
 from parser import parser
 from utils import rc, median_qual
 
+from statistics import median
+
 import warnings
 
 class Dbg:
@@ -169,7 +171,8 @@ class Dbg:
         self.pruned_graph = True
 
     def get_graph_stats(self):
-    
+        if not self.graph_built:
+            raise RuntimeError("You cannot get stats of a graph if it does not exist")
         num_nodes = len(self.nodes) #numero nodi
         num_edges = len(self.edges)
         total_weight = 0
@@ -185,13 +188,16 @@ class Dbg:
         print(f"Nodes: {num_nodes}")
         print(f"Edges: {num_edges}")
         print(f"Average coverage: {avg_coverage:.2f}X")
-
+        if self.bubbles_processed:
+            print(f"Bubbles remaining after processing: {len(self.bubbles)}")
+        if self.tips_processed:
+            print(f"Tips remaining after processing: {len(self.tips)}")
 
     def write_contigs(self, output_filename="contigs.fasta", min_len=0):
         if not isinstance(output_filename, str):
             raise TypeError("output_filename must be string")
         if not isinstance(min_len, int):
-            raise TypeError("min_len must be string")
+            raise TypeError("min_len must be integer")
         if not self.contigs_assembled:
             warnings.warn("Warning! No contigs in memory")
             return []
@@ -205,7 +211,7 @@ class Dbg:
                 for contig in self.contigs:
                     if len(contig[0]) < min_len:
                         continue
-                    f.write(f">contig_{i + 1} len={len(contig[0])} type={contig[1]}\n")
+                    f.write(f">contig_{i + 1} len={len(contig[0])} type={contig[1]} median_cov={contig[2]}\n")
                     f.write(f"{contig[0]}\n")
                     saved_lengths.append(len(contig[0]))
                     count += 1
@@ -305,7 +311,7 @@ class Dbg:
 
         max_len = (self.k * 2) + 1
         iteration = 1
-
+        removed_bubbles = 0
         while True: #itero, vengono risolte prima le bolle interne
             popped_count = 0
             found_bubbles = False
@@ -323,10 +329,12 @@ class Dbg:
                 for bubble in self._detect_bubbles(max_len):
                     self.bubbles[bubble.source.seq] = bubble
                 break
+            removed_bubbles += popped_count
             iteration += 1
 
         self._rm_isolated_nodes()
         self.bubbles_processed = True
+        return removed_bubbles
 
     def _detect_tips(self, max_len):
         # Detection tips di tipo I
@@ -387,7 +395,7 @@ class Dbg:
             raise RuntimeError("You cannot process tips in a graph if it does not exist")
         max_len = (self.k * 2) + 1
         iteration = 1
-
+        removed_tips = 0
         while True: #itero, vengono risolte prima le bolle interne
             removed_count = 0
             found_tips = False
@@ -405,14 +413,16 @@ class Dbg:
                 for tip in self._detect_tips(max_len):
                     self.tips[tip.initial_node.seq] = tip
                 break
+            removed_tips += removed_count
             iteration += 1
 
         self._rm_isolated_nodes()
         self.tips_processed = True
-
+        return removed_tips
 
     def process_short_islands(self):
-
+        if not self.graph_built:
+            raise RuntimeError("You cannot process tips in a graph if it does not exist")
         min_len = (self.k * 2) + 1
 
         visited_nodes = set() #set nodi visti
@@ -483,6 +493,7 @@ class Dbg:
         start_edge.visited = True
         seq = start_edge.seq
         curr = start_edge.destination
+        walk_weights = [start_edge.weight]
         # Continua solo se c'è un'unica uscita (niente hub)
         while len(curr.outgoing) == 1:
             edge = curr.outgoing[0]
@@ -490,13 +501,15 @@ class Dbg:
                 break
             edge.visited = True
             seq += edge.seq[-1]
+            walk_weights.append(edge.weight)
             curr = edge.destination
-        return seq, curr
+        return seq, curr, walk_weights
 
     def _walk_circular(self, start_edge):
         start_edge.visited = True
         seq = start_edge.seq
         curr = start_edge.destination
+        walk_weights = [start_edge.weight]
         # Continua solo se c'è un'unica uscita (niente hub)
         while len(curr.outgoing) == 1:
             edge = curr.outgoing[0]
@@ -505,8 +518,10 @@ class Dbg:
                 break
             edge.visited = True
             seq += edge.seq[-1]
+            walk_weights.append(edge.weight)
             curr = edge.destination
-        return seq, curr, circular_detected
+        return seq, curr, circular_detected, walk_weights
+
 
     def assemble_contigs(self, fork_in_hub = False):
         if not self.graph_built:
@@ -530,10 +545,10 @@ class Dbg:
             for start_edge in contig_start.outgoing:
                 if start_edge.visited:
                     continue
-                contig, next_node = self._walk_linear(start_edge)
+                contig, next_node, walk_weights = self._walk_linear(start_edge)
                 forked = False
                 if next_node.is_hub() and fork_in_hub:
-                    contigs_forked_in_hub
+                    contigs_forked_in_hub = True
                     forked = True
                     common_contig = contig
                     if next_node.seq in self.bubbles:
@@ -545,23 +560,26 @@ class Dbg:
                         new_start_node = bubble_to_assemble.dest_node
                         if len(new_start_node.outgoing) == 0:
                             for alt_path in alternative_paths:
-                                contigs.append((common_contig + alt_path[self.k-1:], "forked_in_hub(whole_bubble)"))
+                                whole_path_weights = walk_weights + alt_path[1][self.k - 1]
+                                contigs.append((common_contig + alt_path[0][self.k-1:], "forked_in_hub(whole_bubble)", median(whole_path_weights)))
                         else:
                             for new_start_edge in new_start_node.outgoing:
                                 if new_start_edge.visited:
                                     continue
-                                new_contig, next_node = self._walk_linear(new_start_edge)
+                                new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge)
                                 for alt_path in alternative_paths:
-                                    contigs.append((common_contig + alt_path[self.k-1:] + new_contig[self.k-1:], "forked_in_hub_(bubble)"))
+                                    whole_path_weights = walk_weights + alt_path[1][self.k-1] + new_walk_weights[self.k - 1]
+                                    contigs.append((common_contig + alt_path[self.k-1:] + new_contig[self.k-1:], "forked_in_hub_(bubble)", median(whole_path_weights)))
                     else:
                         new_start_node = next_node
                         for new_start_edge in new_start_node.outgoing:
                             if new_start_edge.visited:
                                 continue
-                            new_contig, next_node = self._walk_linear(new_start_edge)
-                            contigs.append((common_contig + new_contig[self.k-1:], "forked_in_hub(no_bubble)"))
+                            new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge)
+                            whole_path_weights = walk_weights + new_walk_weights[self.k - 1]
+                            contigs.append((common_contig + new_contig[self.k-1:], "forked_in_hub(no_bubble)", median(whole_path_weights)))
                 if not forked:
-                    contigs.append((contig, "simple"))
+                    contigs.append((contig, "simple", median(walk_weights)))
         not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
         if len(not_visited_edges) == 0:
             print("All edges have been visited. Eulerian path(s) found")
@@ -569,22 +587,20 @@ class Dbg:
             print(f"There are still {len(not_visited_edges)} edges not visited. Starting circular contigs search.")
             if fork_in_hub:
                 print("Fork in hub is not available for circular search")
-            circular_contigs = []
-            partial_circular_contigs = []
+            circular_contigs = 0
+            partial_circular_contigs = 0
             while not_visited_edges:
                 start_edge = not_visited_edges[0]
-                circ_contig, next_node, circular_detected = self._walk_circular(start_edge)
+                circ_contig, next_node, circular_detected, walk_weights = self._walk_circular(start_edge)
+                contig_tag = "circular" if circular_detected else "part_of_circular"
+                contigs.append((circ_contig, contig_tag, median(walk_weights)))
                 if circular_detected:
-                    circular_contigs.append(circ_contig)
+                    circular_contigs += 1
                 else:
-                    partial_circular_contigs.append(circ_contig)
+                    partial_circular_contigs += 1
                 not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
-            print(f"All edges have been now visited. Saved {len(circular_contigs)} circular contigs")
-            print(f"Saved {len(partial_circular_contigs)} contigs probably part of a circular")
-            for circ_contig in circular_contigs:
-                contigs.append((circ_contig, "circular"))
-            for part_circ_contig in partial_circular_contigs:
-                contigs.append((part_circ_contig, "part_of_circular"))
+            print(f"All edges have been now visited. Saved {circular_contigs} circular contigs")
+            print(f"Saved {partial_circular_contigs} contigs probably part of a circular")
         # Reset visited per poter riusare l'assembly
         for edge in self.edges.values():
             edge.visited = False
@@ -602,4 +618,5 @@ class Dbg:
         self.contigs_assembled = True
         if contigs_forked_in_hub:
             print("Some contigs have been forked in hub. N50 may not be totally accurate")
+        print(f"Assembled a total of {len(deduplicated_contigs)} contigs")
         return deduplicated_contigs
