@@ -560,7 +560,7 @@ class Dbg:
                         new_start_node = bubble_to_assemble.dest_node
                         if len(new_start_node.outgoing) == 0:
                             for alt_path in alternative_paths:
-                                whole_path_weights = walk_weights + alt_path[1][self.k - 1]
+                                whole_path_weights = walk_weights + alt_path[1][self.k - 1:]
                                 contigs.append((common_contig + alt_path[0][self.k-1:], "forked_in_hub(whole_bubble)", median(whole_path_weights)))
                         else:
                             for new_start_edge in new_start_node.outgoing:
@@ -568,7 +568,7 @@ class Dbg:
                                     continue
                                 new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge)
                                 for alt_path in alternative_paths:
-                                    whole_path_weights = walk_weights + alt_path[1][self.k-1] + new_walk_weights[self.k - 1]
+                                    whole_path_weights = walk_weights + alt_path[1][self.k-1:] + new_walk_weights[self.k - 1:]
                                     contigs.append((common_contig + alt_path[self.k-1:] + new_contig[self.k-1:], "forked_in_hub_(bubble)", median(whole_path_weights)))
                     else:
                         new_start_node = next_node
@@ -576,7 +576,7 @@ class Dbg:
                             if new_start_edge.visited:
                                 continue
                             new_contig, next_node, new_walk_weights = self._walk_linear(new_start_edge)
-                            whole_path_weights = walk_weights + new_walk_weights[self.k - 1]
+                            whole_path_weights = walk_weights + new_walk_weights[self.k - 1:]
                             contigs.append((common_contig + new_contig[self.k-1:], "forked_in_hub(no_bubble)", median(whole_path_weights)))
                 if not forked:
                     contigs.append((contig, "simple", median(walk_weights)))
