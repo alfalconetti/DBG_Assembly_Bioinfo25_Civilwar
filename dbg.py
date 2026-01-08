@@ -633,6 +633,8 @@ class Dbg:
         # Reset visited per poter riusare l'assembly
         for edge in self.edges.values():
             edge.visited = False
+        for bubble in self.bubbles.values():
+            bubble.visited = False
         # Deduplicazione contigs
         deduplicated_contigs = []
         checked = set()
