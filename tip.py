@@ -1,4 +1,5 @@
 from statistics import median
+from contig import Contig
 
 class Tip:
     """
@@ -88,14 +89,16 @@ class Tip:
             popped = True
         return popped
 
-    def _get_seq_from_path(self):
+    def _get_contig_from_path(self, k):
         sequence = self.path[0].seq
         path_weights = [self.path[0].weight]
         receiving_hubs_visited = set()
+        if self.path[0].source.is_receiving_hub():
+                receiving_hubs_visited.add(self.path[0].source.seq)
         for edge in self.path[1:]:
             sequence += edge.seq[-1]
             path_weights.append(edge.weight)
             curr = edge.source
             if curr.is_receiving_hub():
                 receiving_hubs_visited.add(curr.seq)
-        return sequence, path_weights, receiving_hubs_visited
+        return Contig(seq = sequence, start_node = self.initial_node, final_node = self.final_node, walk_weights = path_weights, receiving_hubs_visited = receiving_hubs_visited, k = k, tip = True)

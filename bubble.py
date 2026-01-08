@@ -1,5 +1,5 @@
 from statistics import median
-
+from contig import Contig
 class Bubble:
     """
         This class represents a "Bubble" in the De Bruijn Graph.
@@ -9,8 +9,8 @@ class Bubble:
         Biologically, this usually represents a local variation in the genome,
         such as a SNP (Single Nucleotide Polymorphism), a small indel, or a sequencing error.
 
-        :ivar source: The node where the divergence begins (the fork).
-        :type source: Node
+        :ivar source_node: The node where the divergence begins (the fork).
+        :type source_node: Node
         :ivar dest: The node where the paths reconverge.
         :type dest: Node
         :ivar paths: A list containing the different routes (lists of edges) inside the bubble.
@@ -29,8 +29,8 @@ class Bubble:
             :param paths: A list of paths, where each path is a list of Edge objects.
             :type paths: list[list[Edge]]
         """
-        self.source = source_node #nodo hub
-        self.dest = dest_node #nodo receiving hub
+        self.source_node = source_node #nodo hub
+        self.dest_node = dest_node #nodo receiving hub
         self.paths = paths #lista di liste di edges
         self.visited = False
 
@@ -96,7 +96,7 @@ class Bubble:
 
         return popped
 
-    def _get_seq_from_path(self):
+    def _get_contigs_from_path(self, k):
         """
             A generator that reconstructs the DNA sequences for all paths in the bubble.
 
@@ -110,10 +110,12 @@ class Bubble:
             sequence = path[0].seq
             path_weights = [path[0].weight]
             receiving_hubs_visited = set()
+            if path[0].source.is_receiving_hub():
+                receiving_hubs_visited.add(path[0].source.seq)
             for edge in path[1:]:
                 sequence += edge.seq[-1]
                 path_weights.append(edge.weight)
                 curr = edge.source
                 if curr.is_receiving_hub():
                     receiving_hubs_visited.add(curr.seq)
-            yield sequence, path_weights, receiving_hubs_visited
+            yield Contig(seq = sequence, start_node = self.source_node, final_node = self.dest_node, walk_weights = path_weights, receiving_hubs_visited = receiving_hubs_visited, k = k, bubble = True)

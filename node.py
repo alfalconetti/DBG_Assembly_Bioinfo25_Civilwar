@@ -44,3 +44,6 @@ class Node:
             :rtype: bool
         """
         return len(self.incoming) > 1
+
+    def __eq__(self, other):
+        return self.seq == other.seq
