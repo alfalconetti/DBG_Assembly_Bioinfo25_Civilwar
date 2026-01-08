@@ -19,7 +19,7 @@ class Contig:
         self.seq += other.seq[self.k-1:]
         self.start_node = self.start_node
         self.final_node = other.final_node
-        self.walk_weights += other.walk_weights[self.k-1:]
+        self.walk_weights += other.walk_weights
         self.receiving_hubs_visited = self.receiving_hubs_visited.union(other.receiving_hubs_visited)
         return self
 
@@ -30,7 +30,7 @@ class Contig:
             seq=self.seq + other.seq[self.k-1:],
             start_node=self.start_node,
             final_node=other.final_node,
-            walk_weights=self.walk_weights + other.walk_weights[self.k-1:],
+            walk_weights=self.walk_weights + other.walk_weights,
             receiving_hubs_visited=self.receiving_hubs_visited.union(other.receiving_hubs_visited),
             k=self.k
         )
