@@ -31,6 +31,9 @@ class Dbg:
     # CAMMINO
     ### Parto casualmente, arrivo fino a un hub (outbound edges > 2)
     ### Se riesco risolvo, altrimenti mi fermo
+    """
+
+    """
 
     def __init__(self, k, file_name, file_type, paired = False, file_nameR2 = None, reverse_r2 = False):
         if not isinstance(k, int):
@@ -127,7 +130,25 @@ class Dbg:
             put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2, use_both_strands = use_both_strands)
         self.graph_built = True
         
-    def add_read(self, read, use_both_strands):
+    def add_read(self, read: str, use_both_strands: bool):
+        """
+            Decomposes a single DNA read into overlapping k-mers and updates the graph.
+
+            For every k-mer in the read:
+            1. It identifies the Prefix (Source Node) and Suffix (Destination Node).
+            2. It creates or updates the Edge connecting them.
+            3. It increases the Edge weight (coverage).
+
+            :param read: The DNA sequence string.
+            :type read: str
+            :param use_both_strands: Whether to generate k-mers for the reverse complement too.
+            :type use_both_strands: bool
+        """
+        if not isinstance(read, str):
+            raise TypeError("read must be str")
+        if not isinstance(use_both_strands, bool):
+            raise TypeError("use_both_strands must be boolean")
+
         for kmer in kmer_generate(read, self.k, reverse= use_both_strands):
             prefix = kmer[:-1] #calcolo prefisso e suffisso
             suffix = kmer[1:]
@@ -149,9 +170,21 @@ class Dbg:
                 node_suffix.incoming.append(new_edge)
 
     
-    def prune_graph(self, threshold=2):
+    def prune_graph(self, threshold: int=2):
+        """
+            Removes edges with low coverage to clean up sequencing errors.
+
+            Low-frequency k-mers are usually  caused by random sequencing errors.
+            Removing them drastically simplifies the graph topology.
+
+            :param threshold: Edges with weight < threshold will be deleted. Defaults to 2.
+            :type threshold: int
+            :raises RuntimeError: If called before the graph is built.
+        """
         if not self.graph_built:
             raise RuntimeError("You cannot prune a graph if it does not exist")
+        if not isinstance(threshold, int):
+            raise TypeError("threshold must be integer")
         kmers_to_remove = []
         for kmer, edge in self.edges.items():
             if edge.weight < threshold:
@@ -176,6 +209,15 @@ class Dbg:
         self.pruned_graph = True
 
     def get_graph_stats(self):
+        """
+            Prints a summary of the current graph status.
+
+            It reports:
+            - Total nodes and edges.
+            - Number of hubs (complex junctions).
+            - Average coverage.
+            - Status of cleaning steps (Bubbles/Tips).
+        """
         if not self.graph_built:
             raise RuntimeError("You cannot get stats of a graph if it does not exist")
         num_nodes = len(self.nodes) #numero nodi
@@ -201,11 +243,25 @@ class Dbg:
         if self.tips_processed:
             print(f"Tips remaining after processing: {len(self.tips)}")
 
-    def write_contigs(self, output_filename="contigs.fasta", min_len=0, verbose = False):
+    def write_contigs(self, output_filename: str ="contigs.fasta", min_len: int =0, verbose: bool = False) -> list:
+        """
+            Saves the assembled contigs to a FASTA file.
+
+            :param output_filename: Name of the output file. Defaults to "contigs.fasta".
+            :type output_filename: str
+            :param min_len: Minimum length (bp) for a contig to be saved.
+            :type min_len: int
+            :param verbose: If True, prints details about every saved contig.
+            :type verbose: bool
+            :return: A list of lengths of the saved contigs (useful for N50 calculation).
+            :rtype: list[int]
+        """
         if not isinstance(output_filename, str):
             raise TypeError("output_filename must be string")
         if not isinstance(min_len, int):
             raise TypeError("min_len must be integer")
+        if not isinstance(verbose, bool):
+            raise TypeError("verbose must be boolean")
         if not self.contigs_assembled:
             warnings.warn("Warning! No contigs in memory")
             return []
@@ -238,7 +294,20 @@ class Dbg:
 
     
     @staticmethod
-    def n50(lengths): #lista di lunghezze
+    def n50(lengths: list[int]) -> int:
+        """
+            Calculates the N50 metric for assembly quality.
+
+            N50 is a standard bioinformatic metric. It is the length of the shortest contig
+            such that the sum of contigs of this length or longer is at least 50%
+            of the total assembly length.
+
+            :param lengths: A list of contig lengths.
+            :type lengths: list[int]
+            :return: The N50 value.
+            :rtype: int
+        """
+        #lista di lunghezze
         if not isinstance(lengths, list):
             raise TypeError("lengths must be list")
         if not lengths:
@@ -256,6 +325,9 @@ class Dbg:
 
 
     def _rm_isolated_nodes(self):
+        """
+            Helper method to remove nodes that have no connections.
+        """
         nodes_to_rm = []
         for kmer, node in self.nodes.items():
             if len(node.incoming) == 0 and len(node.outgoing) == 0:
@@ -267,7 +339,16 @@ class Dbg:
         print(f"removed {len(nodes_to_rm)} isolated nodes")
 
 
-    def _rm_path_edges(self, path):
+    def _rm_path_edges(self, path: list["Edge"]):
+        """
+             Helper method to physically delete a list of edges (a path) from the graph.
+             It disconnects the edges from their source/destination nodes and removes
+             them from the main edge dictionary.
+
+            :param path: The sequence of edges to remove
+            :type path: list[Edge]
+        """
+
         for edge in path:
             if edge in edge.source.outgoing:
                 edge.source.outgoing.remove(edge)
@@ -276,7 +357,17 @@ class Dbg:
             if edge.seq in self.edges:
                 del self.edges[edge.seq]
 
-    def _detect_bubbles(self, max_len):
+    def _detect_bubbles(self, max_len: int):
+        """
+            Generator that searches for bubble structures in the graph.
+
+            It looks for "forks" (nodes with multiple outgoing edges) and tries to find
+            paths that reconverge at a specific "sink" node within a certain distance (`max_len`).
+
+            :param max_len: The maximum length (in edges) of a bubble path.
+            :type max_len: int
+            :yield: Bubble objects found in the graph.
+        """
         #generatore
 
         forks = [n for n in self.nodes.values() if n.is_hub()] #lista nodi hub
@@ -315,9 +406,21 @@ class Dbg:
                     dest_node = self.nodes[dest_seq]
                     yield Bubble(fork_node, dest_node, paths) #restituisco l'oggetto bolla
 
-    def process_bubbles(self, cov_threshold=5):
+    def process_bubbles(self, cov_threshold: int=5) -> int:
+        """
+            Iteratively finds and resolves bubbles in the graph.
+            This method keeps calling  `_detect_bubbles` and solving them until no more
+            bubbles can be resolved. It handles nested bubbles by running multiple iterations.
+
+            :param cov_threshold: Coverage threshold used to distinguish errors from real variants.
+            :type cov_threshold: int
+            :return: Total number of bubbles resolved (popped).
+            :rtype: int
+        """
         if not self.graph_built:
             raise RuntimeError("You cannot process bubbles in a graph if it does not exist")
+        if not isinstance(cov_threshold, int):
+            raise TypeError("cov_threshold must be integer")
 
         max_len = (self.k * 2) + 1
         iteration = 1
@@ -346,7 +449,18 @@ class Dbg:
         self.bubbles_processed = True
         return removed_bubbles
 
-    def _detect_tips(self, max_len):
+    def _detect_tips(self, max_len: int):
+        """
+            Generator that searches for dead ends (Tips) in the graph.
+
+            It scans for:
+            1. Type I Tips: Paths starting at a hub and dying out.
+            2. Type II Tips: Paths starting from nowhere and merging into a hub.
+
+            :param max_len: Maximum length of a tip to be considered. Longer dead ends are kept as valid contigs.
+            :type max_len: int
+            :yield: Tip objects found in the graph.
+        """
         # Detection tips di tipo I
         potential_inital_nodes_I = [node for node in self.nodes.values() if node.is_hub()]
         for fork_node in potential_inital_nodes_I:
@@ -400,9 +514,22 @@ class Dbg:
                 yield Tip(initial_node, curr, path, 2)
 
 
-    def process_tips(self, cov_threshold=5):
+    def process_tips(self, cov_threshold: int=5) -> int:
+        """
+            Iteratively removes dead ends (Tips) from the graph.
+
+            This effectively "shaves" the hairy parts of the graph caused by
+            sequencing errors at the ends of reads.
+
+            :param cov_threshold: Coverage threshold to confirm a tip is an error.
+            :type cov_threshold: int
+            :return: Total number of tips removed.
+            :rtype: int
+        """
         if not self.graph_built:
             raise RuntimeError("You cannot process tips in a graph if it does not exist")
+        if not isinstance(cov_threshold, int):
+            raise TypeError("cov_threshold must be integer")
         max_len = (self.k * 2) + 1
         iteration = 1
         removed_tips = 0
@@ -431,6 +558,17 @@ class Dbg:
         return removed_tips
 
     def process_short_islands(self):
+        """
+            Iteratively removes dead ends (Tips) from the graph.
+
+            This effectively "shaves" the hairy parts of the graph caused by
+            sequencing errors at the ends of reads.
+
+            :param cov_threshold: Coverage threshold to confirm a tip is an error.
+            :type cov_threshold: int
+            :return: Total number of tips removed.
+            :rtype: int
+        """
         if not self.graph_built:
             raise RuntimeError("You cannot process islands in a graph if it does not exist")
         min_len = (self.k * 2) + 1
