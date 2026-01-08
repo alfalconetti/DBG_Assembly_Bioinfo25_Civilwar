@@ -1,7 +1,41 @@
 from statistics import median
 
 class Tip:
-    def __init__(self, initial_node, final_node, path, tip_type):
+    """
+        This class represents a "Tip" in the De Bruijn Graph.
+
+        A Tip is a short branch that disconnects from the main graph structure.
+        Biologically, tips are usually caused by sequencing errors occurring at the
+        very ends of the reads. Since the error k-mers don't match anything else,
+        they form a short path that leads nowhere (or starts from nowhere).
+
+        We distinguish two types of tips:
+            - Type I (Outgoing):** Starts at a graph hub and ends in a dead end (no outgoing edges).
+            - Type II (Incoming):** Starts at a dead end (no incoming edges) and merges into a hub.
+
+        :ivar initial_node: The starting node of the tip.
+        :type initial_node: Node
+        :ivar final_node: The ending node of the tip.
+        :type final_node: Node
+        :ivar path: The list of edges forming the tip sequence.
+        :type path: list['Edge']
+        :ivar tip_type: The classification of the tip (1 for Outgoing, 2 for Incoming).
+        :type tip_type: int
+    """
+    def __init__(self, initial_node: "Node", final_node: "Node", path: list["Edge"], tip_type: int):
+        """
+            Creates a new Tip instance and validates its topology.
+
+            :param initial_node: The start of the branch.
+            :type initial_node: Node
+            :param final_node: The end of the branch.
+            :type final_node: Node
+            :param path: The sequence of edges.
+            :type path: list[Edge]
+            :param tip_type: 1 for Outgoing Tip, 2 for Incoming Tip.
+            :type tip_type: int
+            :raises ValueError: If the nodes do not match the expected topology for the declared tip type.
+        """
         self.initial_node = initial_node
         self.final_node = final_node
         self.path = path
@@ -19,13 +53,31 @@ class Tip:
         else:
             raise ValueError(f"Invalid tip_type: {tip_type}. Must be 1 or 2")
     
-    def _get_path_coverage(self, path):
+    def _get_path_coverage(self, path: list["Edge"]) -> float:
+        """
+            Calculates the median coverage of the tip's path.
+
+            :param path: The list of edges to analyze.
+            :type path: list[Edge]
+            :return: The median weight.
+            :rtype: float
+        """
         if not path:
             return 0
         weights = [edge.weight for edge in path]
-        return median(weights)    
+        return median(weights)
 
-    def _resolve(self, graph, cov_threshold):
+    def _resolve(self, graph: "Dbg", cov_threshold: int) -> bool:
+        """
+            Removes the tip from the graph if its coverage is below the threshold.
+.
+            :param graph: The main graph object (needed to delete edges).
+            :type graph: Dbg
+            :param cov_threshold: The coverage cutoff. Tips below this are removed.
+            :type cov_threshold: int
+            :return: True if the tip was removed, False otherwise.
+            :rtype: bool
+        """
         popped = False
         cov = self._get_path_coverage(self.path)
         if cov < cov_threshold: #sotto treshold, da rimuovere
@@ -33,10 +85,11 @@ class Tip:
             popped = True
         return popped
 
-    def _get_seq_from_path(self):
+    #def _get_seq_from_path(self):
+
         sequence = self.path[0].seq
-        path_weights = self.path[0].weight
-        for edge in path[1:]:
+        path_weights = [self.path[0].weight]
+        for edge in self.path[1:]:
             sequence += edge.seq[-1]
             path_weights.append(edge.weight)
         return sequence, path_weights
