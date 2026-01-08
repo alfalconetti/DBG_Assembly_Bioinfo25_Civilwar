@@ -35,6 +35,8 @@ class Tip:
 
     def _get_seq_from_path(self):
         sequence = self.path[0].seq
+        path_weights = self.path[0].weight
         for edge in path[1:]:
             sequence += edge.seq[-1]
-        return sequence
+            path_weights.append(edge.weight)
+        return sequence, path_weights
