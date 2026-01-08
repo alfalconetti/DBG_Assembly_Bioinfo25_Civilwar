@@ -565,7 +565,7 @@ class Dbg:
                                     contig_tag = "linear_bubble_resolved_extended"
                                 for alt_path in alternative_paths:
                                     whole_path_weights = walk_weights + alt_path[1][self.k-1:] + new_walk_weights[self.k - 1:]
-                                    contigs.append((common_contig + alt_path[self.k-1:] + new_contig[self.k-1:], contig_tag , median(whole_path_weights)))
+                                    contigs.append((common_contig + alt_path[0][self.k-1:] + new_contig[self.k-1:], contig_tag , median(whole_path_weights)))
                         for remaining_edge in [edge for edge in next_node.outgoing if not edge.visited]: # Edges che partono da next_node ma non sono della bolla
                             remaining_contig, remaining_next_node, remaining_walk_weights = self._walk_linear(remaining_edge)
                             if remaining_next_node == next_node:
@@ -575,7 +575,7 @@ class Dbg:
                             else:
                                 contig_tag = "linear_through_hub"
                             whole_path_weights = walk_weights + remaining_walk_weights[self.k+1:]
-                            contigs.append((common_contig + remaining_contig[self.k+1], contig_tag, median(remaining_walk_weights)))
+                            contigs.append((common_contig + remaining_contig[self.k+1:], contig_tag, median(remaining_walk_weights)))
                     else: #non è una bolla
                         new_start_node = next_node
                         for new_start_edge in new_start_node.outgoing:
