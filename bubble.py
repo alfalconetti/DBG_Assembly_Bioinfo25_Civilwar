@@ -109,7 +109,11 @@ class Bubble:
         for path in self.paths: #generatore di sequenza e lista pesi per ciascun path(lista edge)
             sequence = path[0].seq
             path_weights = [path[0].weight]
+            receiving_hubs_visited = set()
             for edge in path[1:]:
                 sequence += edge.seq[-1]
                 path_weights.append(edge.weight)
-            yield sequence, path_weights
+                curr = edge.source
+                if curr.is_receiving_hub():
+                    receiving_hubs_visited.add(curr.seq)
+            yield sequence, path_weights, receiving_hubs_visited

@@ -428,12 +428,14 @@ class Dbg:
         while True: #itero, vengono risolte prima le bolle interne
             popped_count = 0
             found_bubbles = False
-
-            for bubble in self._detect_bubbles(max_len):
-                found_bubbles = True
-                if bubble._resolve(self, cov_threshold):
-                    popped_count += 1
-
+            try:
+                for bubble in self._detect_bubbles(max_len):
+                    found_bubbles = True
+                    if bubble._resolve(self, cov_threshold):
+                        popped_count += 1
+            except ValueError:
+                print("There have been problem in tips detection. You can't perform the operation")
+                break
             if not found_bubbles: #sono tutte risolte
                 break
 
@@ -642,6 +644,9 @@ class Dbg:
         seq = start_edge.seq
         curr = start_edge.destination
         walk_weights = [start_edge.weight]
+        receiving_hubs_visited = set()
+        if curr.is_receiving_hub():
+            receiving_hubs_visited.add(curr.seq)
         # Continua solo se c'è un'unica uscita (niente hub)
         while len(curr.outgoing) == 1:
             edge = curr.outgoing[0]
@@ -651,7 +656,9 @@ class Dbg:
             seq += edge.seq[-1]
             walk_weights.append(edge.weight)
             curr = edge.destination
-        return seq, curr, walk_weights
+            if curr.is_receiving_hub():
+                receiving_hubs_visited.add(curr.seq)
+        return seq, curr, walk_weights, receiving_hubs_visited
 
 
     def assemble_contigs(self, fork_in_hub = False):
@@ -676,7 +683,7 @@ class Dbg:
             for start_edge in contig_start.outgoing:
                 if start_edge.visited:
                     continue
-                contig, next_node, walk_weights = self._walk_linear(start_edge)
+                contig, next_node, walk_weights, receiving_hubs_visited = self._walk_linear(start_edge)
                 forked = False
                 if next_node.is_hub() and fork_in_hub:
                     contigs_forked_in_hub = True
@@ -690,51 +697,73 @@ class Dbg:
                         alternative_paths = list(bubble_to_assemble._get_seq_from_path()) #lista di tuple con sequenza e lista pesi
                         new_start_node = bubble_to_assemble.dest_node
                         bubble_to_assemble.visited = True
-                        if len(new_start_node.outgoing) == 0: #cioè, se non continua dopo la chiusura della bolla
-                            contig_tag = "circular_bubble_resolved" if contig_start == new_start_node else "linear_bubble_resolved_ending"
+                        if len(new_start_node.outgoing) == 0 or all([edge.visited for edge in new_start_node.outgoing]): #cioè, se non continua dopo la chiusura della bolla
                             for alt_path in alternative_paths:
+                                if contig_start == new_start_node:
+                                    contig_tag = "circular_bubble_resolved_ending" 
+                                elif new_start_node.seq in receiving_hubs_visited.union(alt_path[2]):
+                                    contig_tag = f"lariat_bubble_resolved_ending branch_kmer={new_start_node.seq}"
+                                else:
+                                    contig_tag = "linear_bubble_resolved_ending"
                                 whole_path_weights = walk_weights + alt_path[1][self.k - 1:]
                                 contigs.append((common_contig + alt_path[0][self.k-1:], contig_tag, median(whole_path_weights)))
                         else:
                             for new_start_edge in new_start_node.outgoing:
                                 if new_start_edge.visited:
                                     continue
-                                new_contig, new_next_node, new_walk_weights = self._walk_linear(new_start_edge) #continua a camminare dopo la chiusura della bolla
-                                if new_next_node == next_node:
-                                    contig_tag = "lariat_with_bubble"
-                                elif contig_start == new_next_node:
-                                    contig_tag = "circular_with_bubble"
-                                else:
-                                    contig_tag = "linear_bubble_resolved_extended"
+                                new_contig, new_next_node, new_walk_weights, new_receiving_hubs_visited = self._walk_linear(new_start_edge) #continua a camminare dopo la chiusura della bolla
                                 for alt_path in alternative_paths:
+                                    if new_next_node.seq in receiving_hubs_visited.union(alt_path[2]).union(new_receiving_hubs_visited): #########################
+                                        contig_tag = f"lariat_with_bubble branch_kmer={new_next_node.seq}"
+                                    elif contig_start == new_next_node:
+                                        contig_tag = "circular_with_bubble"
+                                    else:
+                                        contig_tag = "linear_bubble_resolved_extended"
                                     whole_path_weights = walk_weights + alt_path[1][self.k-1:] + new_walk_weights[self.k - 1:]
                                     contigs.append((common_contig + alt_path[0][self.k-1:] + new_contig[self.k-1:], contig_tag , median(whole_path_weights)))
                         for remaining_edge in [edge for edge in next_node.outgoing if not edge.visited]: # Edges che partono da next_node ma non sono della bolla
-                            remaining_contig, remaining_next_node, remaining_walk_weights = self._walk_linear(remaining_edge)
-                            if remaining_next_node == next_node:
-                                contig_tag = "lariat_through_hub"
+                            remaining_contig, remaining_next_node, remaining_walk_weights, remaining_receiving_hubs_visited = self._walk_linear(remaining_edge)
+                            if remaining_next_node.seq in receiving_hubs_visited.union(remaining_receiving_hubs_visited):
+                                contig_tag = f"lariat_through_hub branch_kmer={remaining_next_node.seq}"
                             elif remaining_next_node == contig_start:
                                 contig_tag = "circular_through_hub"
                             else:
                                 contig_tag = "linear_through_hub"
                             whole_path_weights = walk_weights + remaining_walk_weights[self.k-1:]
                             contigs.append((common_contig + remaining_contig[self.k-1:], contig_tag, median(remaining_walk_weights)))
+                    elif next_node.seq in self.tips and not self.tips[next_node.seq].visited:
+                        tip_to_assemble = self.tips[next_node.seq]
+                        for edge in tip_to_assemble.path:
+                            edge.visited = True
+                        tip_contig, tip_weights, tip_receiving_hubs_visited = tip_to_assemble._get_seq_from_path()
+                        tip_to_assemble.visited = True
+                        whole_path_weights = walk_weights + tip_weights
+                        if tip_to_assemble.final_node.seq in receiving_hubs_visited.union(tip_receiving_hubs_visited):
+                            contig_tag = f"lariat_with_tip branch_kmer={tip_to_assemble.final_node.seq}"
+                        else:
+                            contig_tag = "linear_with_tip"
+                        contigs.append((common_contig + tip_contig[self.k-1:], contig_tag, median(whole_path_weights)))
                     else: #non è una bolla
                         new_start_node = next_node
                         for new_start_edge in new_start_node.outgoing:
                             if new_start_edge.visited:
                                 continue
-                            new_contig, new_next_node, new_walk_weights = self._walk_linear(new_start_edge)
+                            new_contig, new_next_node, new_walk_weights, new_receiving_hubs_visited = self._walk_linear(new_start_edge)
                             whole_path_weights = walk_weights + new_walk_weights[self.k - 1:]
-                            if new_next_node == next_node:
-                                contig_tag = "lariat_through_hub"
+                            if new_next_node.seq in receiving_hubs_visited.union(new_receiving_hubs_visited):
+                                contig_tag = f"lariat_through_hub branch_kmer={new_next_node.seq}"
                             elif new_next_node == contig_start:
                                 contig_tag = "circular_through_hub"
                             else:
                                 contig_tag = "linear_through_hub"
                             contigs.append((common_contig + new_contig[self.k-1:], contig_tag, median(whole_path_weights)))
                 if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
-                    contig_tag = "circular_simple" if contig_start == next_node else "linear_simple" #potrebbe essere un circolare che parte da un hub interno
+                    if contig_start == next_node:
+                        contig_tag = "circular_simple" #potrebbe essere un circolare che parte da un hub interno
+                    elif contig_start.seq in receiving_hubs_visited:
+                        contig_tag = f"lariat_simple branch_kmer={contig_start.seq}"
+                    else:
+                        contig_tag = "linear_simple" 
                     contigs.append((contig, contig_tag, median(walk_weights)))
 
         if fork_in_hub:
@@ -746,8 +775,13 @@ class Dbg:
                     for start_edge in contig_start.outgoing:
                         if start_edge.visited:
                             continue
-                        contig, next_node, walk_weights = self._walk_linear(start_edge)
-                        contig_tag = "circular_fork_hub_residual" if next_node == contig_start else "linear_fork_hub_residual"
+                        contig, next_node, walk_weights, receiving_hubs_visited = self._walk_linear(start_edge)
+                        if next_node == contig_start:
+                            contig_tag = "circular_fork_hub_residual"
+                        elif next_node.seq in receiving_hubs_visited:
+                            contig_tag = f"lariat_fork_hub_residual branch_kmer={next_node.seq}"
+                        else:
+                            contig_tag = "linear_fork_hub_residual"
                         contigs.append((contig, contig_tag, median(walk_weights)))
                     if all(edge.visited for edge in contig_start.outgoing):
                         remaining_hubs_seqs.remove(contig_start_seq)
@@ -764,8 +798,13 @@ class Dbg:
             while not_visited_edges:
                 start_edge = not_visited_edges[0]
                 start_node = start_edge.source
-                circ_contig, next_node, walk_weights = self._walk_linear(start_edge)
-                contig_tag = "circular_isolated" if start_node == next_node else "unknown_contig_type"
+                circ_contig, next_node, walk_weights, receiving_hubs_visited = self._walk_linear(start_edge)
+                if start_node == next_node:
+                    contig_tag = "circular_isolated"
+                elif start_node.seq in receiving_hubs_visited:
+                    contig_tag = "unknown_contig_type_lariat_like"
+                else:
+                    contig_tag = "unknown_contig_type"
                 contigs.append((circ_contig, contig_tag, median(walk_weights)))
                 if contig_tag == "circular_isolated":
                     circular_contigs += 1
@@ -780,6 +819,8 @@ class Dbg:
             edge.visited = False
         for bubble in self.bubbles.values():
             bubble.visited = False
+        for tip in self.tips.values():
+            tip.visited = False
         # Deduplicazione contigs
         deduplicated_contigs = []
         checked = set()

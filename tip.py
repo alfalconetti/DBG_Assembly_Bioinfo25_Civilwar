@@ -21,6 +21,8 @@ class Tip:
         :type path: list['Edge']
         :ivar tip_type: The classification of the tip (1 for Outgoing, 2 for Incoming).
         :type tip_type: int
+        :ivar visited: Flag to track if we have processed this bubble. Defaults to False.
+        :type visited: bool
     """
     def __init__(self, initial_node: "Node", final_node: "Node", path: list["Edge"], tip_type: int):
         """
@@ -40,6 +42,7 @@ class Tip:
         self.final_node = final_node
         self.path = path
         self.tip_type = tip_type
+        self.visited = False
         if tip_type == 1:
             if not self.initial_node.is_hub():
                 raise ValueError("Type I tip must start from hub")
@@ -85,11 +88,14 @@ class Tip:
             popped = True
         return popped
 
-    #def _get_seq_from_path(self):
-
+    def _get_seq_from_path(self):
         sequence = self.path[0].seq
         path_weights = [self.path[0].weight]
+        receiving_hubs_visited = set()
         for edge in self.path[1:]:
             sequence += edge.seq[-1]
             path_weights.append(edge.weight)
-        return sequence, path_weights
+            curr = edge.source
+            if curr.is_receiving_hub():
+                receiving_hubs_visited.add(curr.seq)
+        return sequence, path_weights, receiving_hubs_visited
