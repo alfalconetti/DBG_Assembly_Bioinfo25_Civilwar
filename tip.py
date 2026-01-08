@@ -34,7 +34,7 @@ class Tip:
         return popped
 
     def _get_seq_from_path(self):
-        sequence = path[0].seq
+        sequence = self.path[0].seq
         for edge in path[1:]:
             sequence += edge.seq[-1]
         return sequence
