@@ -687,7 +687,7 @@ class Dbg:
                     continue
                 contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start)
                 forked = False
-                if contig.final_node.is_hub() and fork_in_hub:
+                if contig.final_node.is_hub() and fork_in_hub and not (contig.is_lariat() or contig.is_circular()):
                     contigs_forked_in_hub = True
                     forked = True
                     common_contig = contig.copy()
@@ -758,9 +758,15 @@ class Dbg:
                             contigs.append(whole_contig)
                 if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
                     if contig.is_circular():
-                        contig.tag = "circular_simple" #potrebbe essere un circolare che parte da un hub interno
+                        if contig.final_node.is_hub():
+                            contig.tag = "circular_ending_hub"
+                        else:
+                            contig.tag = "circular_simple" #potrebbe essere un circolare che parte da un hub interno
                     elif contig.is_lariat():
-                        contig.tag = "lariat_simple"
+                        if contig.final_node.is_hub():
+                            contig.tag = "lariat_hub_branching"
+                        else:
+                            contig.tag = "lariat_simple"
                     else:
                         contig.tag = "linear_simple" 
                     contigs.append(contig)
