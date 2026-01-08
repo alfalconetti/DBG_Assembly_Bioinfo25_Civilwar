@@ -5,6 +5,7 @@ class Bubble:
         self.source = source_node #nodo hub
         self.dest = dest_node #nodo receiving hub
         self.paths = paths #lista di liste di edges
+        self.visited = False
 
     def get_path_coverage(self, path):
         if not path:
