@@ -34,7 +34,7 @@ def main():
     print("> Removing k-mers with low frequency (threshold=2)...")
 
     t0 = time.time()
-    grafo.prune_graph(threshold=2)
+    grafo.prune_graph(threshold=3)
     print(f"> Time elapsed: {time.time() - t0:.2f}s")
     grafo.get_graph_stats()
 
@@ -71,7 +71,7 @@ def main():
     print(f"\n[5] WRITING OUTPUT")
 
     try:
-        saved_lengths = grafo.write_contigs(OUTPUT_FILE)
+        saved_lengths = grafo.write_contigs(OUTPUT_FILE, verbose = True)
 
         if saved_lengths:
             num_contigs = len(saved_lengths)

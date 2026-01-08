@@ -188,9 +188,12 @@ class Dbg:
             avg_coverage = total_weight / num_edges
         else:
             avg_coverage = 0
-            
+        
+        num_hubs = len(list(node for node in self.nodes.values() if node.is_hub()))
+        num_rec_hubs = len(list(node for node in self.nodes.values() if node.is_receiving_hub()))
         print("Graph Statistics: ")
         print(f"Nodes: {num_nodes}")
+        print(f"Of which {num_hubs} hubs and {num_rec_hubs} receiving hubs")
         print(f"Edges: {num_edges}")
         print(f"Average coverage: {avg_coverage:.2f}X")
         if self.bubbles_processed:
@@ -198,7 +201,7 @@ class Dbg:
         if self.tips_processed:
             print(f"Tips remaining after processing: {len(self.tips)}")
 
-    def write_contigs(self, output_filename="contigs.fasta", min_len=0):
+    def write_contigs(self, output_filename="contigs.fasta", min_len=0, verbose = False):
         if not isinstance(output_filename, str):
             raise TypeError("output_filename must be string")
         if not isinstance(min_len, int):
@@ -217,6 +220,8 @@ class Dbg:
                     if len(contig[0]) < min_len:
                         continue
                     f.write(f">contig_{i + 1} len={len(contig[0])} type={contig[1]} median_cov={contig[2]}\n")
+                    if verbose:
+                        print(f"Written contig_{i + 1} len={len(contig[0])} type={contig[1]} median_cov={contig[2]}")
                     f.write(f"{contig[0]}\n")
                     saved_lengths.append(len(contig[0]))
                     count += 1
@@ -574,8 +579,8 @@ class Dbg:
                                 contig_tag = "circular_through_hub"
                             else:
                                 contig_tag = "linear_through_hub"
-                            whole_path_weights = walk_weights + remaining_walk_weights[self.k+1:]
-                            contigs.append((common_contig + remaining_contig[self.k+1:], contig_tag, median(remaining_walk_weights)))
+                            whole_path_weights = walk_weights + remaining_walk_weights[self.k-1:]
+                            contigs.append((common_contig + remaining_contig[self.k-1:], contig_tag, median(remaining_walk_weights)))
                     else: #non è una bolla
                         new_start_node = next_node
                         for new_start_edge in new_start_node.outgoing:
@@ -596,16 +601,18 @@ class Dbg:
 
         if fork_in_hub:
             # hubs restanti poiché fork_in_hub si ferma dopo un livello
-            remaining_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub() and any(not edge.visited for edge in node.outgoing)]
-            while len(remaining_hubs) != 0:
-                for contig_start in remaining_hubs:
+            remaining_hubs_seqs = {node.seq for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub() and any(not edge.visited for edge in node.outgoing)}
+            while remaining_hubs_seqs:
+                for contig_start_seq in list(remaining_hubs_seqs):
+                    contig_start = self.nodes[contig_start_seq]
                     for start_edge in contig_start.outgoing:
                         if start_edge.visited:
                             continue
                         contig, next_node, walk_weights = self._walk_linear(start_edge)
                         contig_tag = "circular_fork_hub_residual" if next_node == contig_start else "linear_fork_hub_residual"
                         contigs.append((contig, contig_tag, median(walk_weights)))
-                remaining_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub() and any(not edge.visited for edge in node.outgoing)]
+                    if all(edge.visited for edge in contig_start.outgoing):
+                        remaining_hubs_seqs.remove(contig_start_seq)
 
         not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
         if len(not_visited_edges) == 0:
