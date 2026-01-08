@@ -4,6 +4,28 @@ from dbg import Dbg
 
 
 def main():
+    """
+        The main execution entry point for the De Bruijn Graph Assembler Pipeline.
+
+        This function coordinates the entire lifecycle of the assembly process,
+        from reading raw sequencing data to producing the final FASTA output.
+
+        The pipeline is structured in 5 sequential stages:
+        1.  Graph Construction: Parses FASTQ files and builds the initial De Bruijn Graph.
+        2.  Pruning: Removes k-mers with low coverage (likely sequencing errors) to clean the graph.
+        3.  Topological Cleaning: Resolves complex graph structures:
+                - Tips: Dead ends caused by errors at the end of reads.
+                - Bubbles: Diverging paths caused by SNPs or errors in the middle of reads.
+                - Islands: Disconnected small components.
+        4.  Assembly: Traverses the cleaned graph to generate contigs (sequences).
+        5.  Output & Stats: Writes the results to a file and calculates quality metrics (N50).
+
+        Configuration:
+        File paths and parameters (k-mer size, thresholds) are currently defined
+        as constants at the beginning of this function.
+
+        :raises SystemExit: If a critical error occurs during graph construction (e.g., file not found).
+    """
     FILE_R1 = "test_data/Illumina_reads1.fq"
     FILE_R2 = "test_data/Illumina_reads2.fq"
     K_MER_SIZE = 31
