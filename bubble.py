@@ -1,19 +1,71 @@
 from statistics import median
 
 class Bubble:
-    def __init__(self, source_node, dest_node, paths):
+    """
+        This class represents a "Bubble" in the De Bruijn Graph.
+
+        A bubble occurs when the graph splits into multiple paths (at a source node)
+        and then rejoins later (at a destination node).
+        Biologically, this usually represents a local variation in the genome,
+        such as a SNP (Single Nucleotide Polymorphism), a small indel, or a sequencing error.
+
+        :ivar source: The node where the divergence begins (the fork).
+        :type source: Node
+        :ivar dest: The node where the paths reconverge.
+        :type dest: Node
+        :ivar paths: A list containing the different routes (lists of edges) inside the bubble.
+        :type paths: list[list['Edge']]
+        :ivar visited: Flag to track if we have processed this bubble. Defaults to False.
+        :type visited: bool
+    """
+    def __init__(self, source_node: "Node", dest_node: "Node", paths: list[list["Edge"]]):
+        """
+            Creates a new Bubble instance.
+
+            :param source_node: The starting hub of the bubble.
+            :type source_node: Node
+            :param dest_node: The ending receiving hub of the bubble.
+            :type dest_node: Node
+            :param paths: A list of paths, where each path is a list of Edge objects.
+            :type paths: list[list[Edge]]
+        """
         self.source = source_node #nodo hub
         self.dest = dest_node #nodo receiving hub
         self.paths = paths #lista di liste di edges
         self.visited = False
 
-    def get_path_coverage(self, path):
+    def get_path_coverage(self, path: list["Edge"]) -> float:
+        """
+            Calculates the median coverage of a specific path within the bubble.
+
+            :param path: The path to analyze (a list of edges).
+            :type path: list[Edge]
+            :return: The median weight of the edges in the path.
+            :rtype: float
+        """
         if not path:
             return 0
         weights = [edge.weight for edge in path]
         return median(weights)
 
-    def _resolve(self, graph, cov_threshold, ratio_threshold=0.1):
+    def _resolve(self, graph: "Dbg", cov_threshold: int, ratio_threshold: float =0.1) -> bool:
+        """
+            Attempts to "pop" the bubble by removing low-quality paths.
+
+            It compares the paths based on their coverage. It keeps the best path
+            and removes the "losers" if they are either:
+            1. Below a hard coverage threshold.
+            2. Too weak compared to the best path (likely sequencing errors).
+
+            :param graph: The main graph object (needed to physically delete edges).
+            :type graph: Dbg
+            :param cov_threshold: Minimum coverage required to keep a path.
+            :type cov_threshold: int
+            :param ratio_threshold: Minimum ratio required relative to the best path's coverage.
+            :type ratio_threshold: float
+            :return: True if at least one path was removed (bubble popped), False otherwise.
+            :rtype: bool
+        """
         if len(self.paths) < 2: #se il nodo ricevente ha meno di due path... non è una bolla
             return False
 
@@ -45,7 +97,16 @@ class Bubble:
         return popped
 
     def _get_seq_from_path(self):
-        for path in self.paths: #generatore di sequenza e lista pesi per ciasun path(lista edge)
+        """
+            A generator that reconstructs the DNA sequences for all paths in the bubble.
+
+            It walks through the edges of each path, stitching the k-mers together
+            (handling the k-1 overlap) and collecting the coverage weights.
+
+            :yield: A tuple containing (assembled_sequence, list_of_weights).
+            :rtype: Iterator[tuple[str, list[int]]]
+        """
+        for path in self.paths: #generatore di sequenza e lista pesi per ciascun path(lista edge)
             sequence = path[0].seq
             path_weights = [path[0].weight]
             for edge in path[1:]:
