@@ -193,7 +193,7 @@ class Dbg:
         num_rec_hubs = len(list(node for node in self.nodes.values() if node.is_receiving_hub()))
         print("Graph Statistics: ")
         print(f"Nodes: {num_nodes}")
-        print(f"Of which {num_hubs} hubs and {num_rec_hubs} receiving hubs")
+        print(f"  Of which {num_hubs} hubs and {num_rec_hubs} receiving hubs")
         print(f"Edges: {num_edges}")
         print(f"Average coverage: {avg_coverage:.2f}X")
         if self.bubbles_processed:

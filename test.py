@@ -4,8 +4,8 @@ from dbg import Dbg
 
 
 def main():
-    FILE_R1 = "Illumina_reads1.fq"
-    FILE_R2 = "Illumina_reads2.fq"
+    FILE_R1 = "test_data/Illumina_reads1.fq"
+    FILE_R2 = "test_data/Illumina_reads2.fq"
     K_MER_SIZE = 31
     OUTPUT_FILE = "assembly_output.fasta"
 
