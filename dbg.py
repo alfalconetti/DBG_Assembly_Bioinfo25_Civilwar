@@ -427,7 +427,7 @@ class Dbg:
 
     def process_short_islands(self):
         if not self.graph_built:
-            raise RuntimeError("You cannot process tips in a graph if it does not exist")
+            raise RuntimeError("You cannot process islands in a graph if it does not exist")
         min_len = (self.k * 2) + 1
 
         visited_nodes = set() #set nodi visti
