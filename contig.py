@@ -83,7 +83,11 @@ class Contig:
         return self.start_node == self.final_node
 
     def is_lariat(self):
-        return self.final_node.seq in self.receiving_hubs_visited and not self.is_circular()
+        if self.final_node.seq in self.receiving_hubs_visited and not self.is_circular():
+            self.branch_kmer = self.final_node.seq
+            return True
+        else:
+            return False
 
     def is_bubble_ending(self):
         return self.bubble and self.bubble_ends[1] == self.final_node.seq
