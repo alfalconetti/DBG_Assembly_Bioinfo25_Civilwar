@@ -807,7 +807,7 @@ class Dbg:
                 if circ_contig.is_circular():
                     circ_contig.tag = "circular_isolated"
                 elif circ_contig.is_lariat():
-                    circ_contig,tag = "unknown_contig_type_lariat_like"
+                    circ_contig.tag = "unknown_contig_type_lariat_like"
                 else:
                     circ_contig.tag = "unknown_contig_type"
                 contigs.append(circ_contig)
