@@ -118,4 +118,4 @@ class Bubble:
                 curr = edge.source
                 if curr.is_receiving_hub():
                     receiving_hubs_visited.add(curr.seq)
-            yield Contig(seq = sequence, start_node = self.source_node, final_node = self.dest_node, walk_weights = path_weights, receiving_hubs_visited = receiving_hubs_visited, k = k, bubble = True)
+            yield Contig(seq = sequence, start_node = self.source_node, final_node = self.dest_node, walk_weights = path_weights, receiving_hubs_visited = receiving_hubs_visited, k = k, bubble = True, bubble_ends = (self.source_node.seq, self.dest_node.seq))

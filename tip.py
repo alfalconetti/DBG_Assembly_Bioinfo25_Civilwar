@@ -101,4 +101,4 @@ class Tip:
             curr = edge.source
             if curr.is_receiving_hub():
                 receiving_hubs_visited.add(curr.seq)
-        return Contig(seq = sequence, start_node = self.initial_node, final_node = self.final_node, walk_weights = path_weights, receiving_hubs_visited = receiving_hubs_visited, k = k, tip = True)
+        return Contig(seq = sequence, start_node = self.initial_node, final_node = self.final_node, walk_weights = path_weights, receiving_hubs_visited = receiving_hubs_visited, k = k, tip = True, tip_hub = self.initial_node.seq)

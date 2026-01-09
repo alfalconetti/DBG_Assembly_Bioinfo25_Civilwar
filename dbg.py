@@ -662,8 +662,7 @@ class Dbg:
                 receiving_hubs_visited.add(curr.seq)
         return seq, curr, walk_weights, receiving_hubs_visited
 
-
-    def assemble_contigs(self, fork_in_hub = False):
+    def _checks_and_create_starts(self, fork_in_hub):
         if not self.graph_built:
             raise RuntimeError("You cannot assemble contigs in a graph if it does not exist")
         if not self.bubbles_processed:
@@ -679,6 +678,39 @@ class Dbg:
         if not fork_in_hub:
             internal_hubs = [node for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub()] #considera anche gli hub come punti di inzio
             all_starts += internal_hubs
+        return all_starts
+
+    def _assemble_bubble(self, bubble_to_assemble, common_contig):
+        contigs = []
+        for path in bubble_to_assemble.paths: #per ciasun path della bolla
+            for edge in path: #per ciascun edge nel path
+                edge.visited = True
+        alternative_paths = list(bubble_to_assemble._get_contigs_from_path(self.k)) #lista di oggetti contig con sequenza e lista pesi
+        new_start_node = bubble_to_assemble.dest_node
+        bubble_to_assemble.visited = True
+        if len(new_start_node.outgoing) == 0 or all([edge.visited for edge in new_start_node.outgoing]): #cioè, se non continua dopo la chiusura della bolla
+            for alt_contig in alternative_paths:
+                whole_contig = common_contig + alt_contig
+                whole_contig.get_tag()
+                contigs.append(whole_contig)
+        else:
+            for new_start_edge in new_start_node.outgoing:
+                if new_start_edge.visited:
+                    continue
+                new_contig = Contig.from_walk_linear(self._walk_linear(new_start_edge), self.k, new_start_node, hub = True, hub_seq = bubble_to_assemble.dest_node.seq) #continua a camminare dopo la chiusura della bolla
+                for alt_contig in alternative_paths:
+                    whole_contig = common_contig + alt_contig + new_contig
+                    whole_contig.get_tag()
+                    contigs.append(whole_contig)
+        for remaining_edge in [edge for edge in common_contig.final_node.outgoing if not edge.visited]: # Edges che partono da next_node ma non sono della bolla
+            remaining_contig = Contig.from_walk_linear(self._walk_linear(remaining_edge), self.k, common_contig.final_node, hub = True, hub_seq = bubble_to_assemble.source_node.seq)
+            whole_contig = common_contig + remaining_contig
+            whole_contig.get_tag()
+            contigs.append(whole_contig)
+        return contigs
+
+    def assemble_contigs(self, fork_in_hub = False):
+        all_starts = self._checks_and_create_starts(fork_in_hub)
         contigs = []
         contigs_forked_in_hub = False
         for contig_start in all_starts:
@@ -693,46 +725,8 @@ class Dbg:
                     common_contig = contig.copy()
                     if contig.final_node.seq in self.bubbles and not self.bubbles[contig.final_node.seq].visited: #è l'inizio di una bolla non già visitata
                         bubble_to_assemble = self.bubbles[contig.final_node.seq] #prendo la bolla
-                        for path in bubble_to_assemble.paths: #per ciasun path della bolla
-                            for edge in path: #per ciascun edge nel path
-                                edge.visited = True
-                        alternative_paths = list(bubble_to_assemble._get_contigs_from_path(self.k)) #lista di oggetti contig con sequenza e lista pesi
-                        new_start_node = bubble_to_assemble.dest_node
-                        bubble_to_assemble.visited = True
-                        if len(new_start_node.outgoing) == 0 or all([edge.visited for edge in new_start_node.outgoing]): #cioè, se non continua dopo la chiusura della bolla
-                            for alt_contig in alternative_paths:
-                                whole_contig = common_contig + alt_contig 
-                                if whole_contig.is_circular():
-                                    whole_contig.tag = "circular_bubble_resolved_ending" 
-                                elif whole_contig.is_lariat():
-                                    whole_contig.tag = "lariat_bubble_resolved_ending"
-                                else:
-                                    whole_contig.tag = "linear_bubble_resolved_ending"
-                                contigs.append(whole_contig)
-                        else:
-                            for new_start_edge in new_start_node.outgoing:
-                                if new_start_edge.visited:
-                                    continue
-                                new_contig = Contig.from_walk_linear(self._walk_linear(new_start_edge), self.k, new_start_node) #continua a camminare dopo la chiusura della bolla
-                                for alt_contig in alternative_paths:
-                                    whole_contig = common_contig + alt_contig + new_contig
-                                    if whole_contig.is_lariat(): #########################
-                                        whole_contig.tag = "lariat_with_bubble"
-                                    elif whole_contig.is_circular():
-                                        whole_contig.tag = "circular_with_bubble"
-                                    else:
-                                        whole_contig.tag = "linear_bubble_resolved_extended"
-                                    contigs.append(whole_contig)
-                        for remaining_edge in [edge for edge in contig.final_node.outgoing if not edge.visited]: # Edges che partono da next_node ma non sono della bolla
-                            remaining_contig = Contig.from_walk_linear(self._walk_linear(remaining_edge), self.k, contig.final_node)
-                            whole_contig = common_contig + remaining_contig
-                            if whole_contig.is_lariat():
-                                whole_contig.tag = "lariat_through_hub"
-                            elif whole_contig.is_circular():
-                                whole_contig.tag = "circular_through_hub"
-                            else:
-                                whole_contig.tag = "linear_through_hub"
-                            contigs.append(whole_contig)
+                        bubble_contigs = self._assemble_bubble(bubble_to_assemble, common_contig)
+                        contigs.extend(bubble_contigs)
                     elif contig.final_node.seq in self.tips and not self.tips[contig.final_node.seq].visited:
                         tip_to_assemble = self.tips[contig.final_node.seq]
                         for edge in tip_to_assemble.path:
@@ -740,35 +734,19 @@ class Dbg:
                         tip_contig = tip_to_assemble._get_contig_from_path(self.k)
                         tip_to_assemble.visited = True
                         whole_contig = common_contig + tip_contig
-                        whole_contig.tag = "linear_with_tip"
+                        whole_contig.get_tag()
                         contigs.append(whole_contig)
                     else: #non è una bolla
                         new_start_node = contig.final_node
                         for new_start_edge in new_start_node.outgoing:
                             if new_start_edge.visited:
                                 continue
-                            new_contig = Contig.from_walk_linear(self._walk_linear(new_start_edge), self.k, new_start_node)
+                            new_contig = Contig.from_walk_linear(self._walk_linear(new_start_edge), self.k, new_start_node, hub = True, hub_seq = common_contig.final_node.seq)
                             whole_contig = common_contig + new_contig
-                            if whole_contig.is_lariat():
-                                whole_contig.tag = "lariat_through_hub"
-                            elif whole_contig.is_circular():
-                                whole_contig.tag = "circular_through_hub"
-                            else:
-                                whole_contig.tag = "linear_through_hub"
+                            whole_contig.get_tag()
                             contigs.append(whole_contig)
                 if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
-                    if contig.is_circular():
-                        if contig.final_node.is_hub():
-                            contig.tag = "circular_ending_hub"
-                        else:
-                            contig.tag = "circular_simple" #potrebbe essere un circolare che parte da un hub interno
-                    elif contig.is_lariat():
-                        if contig.final_node.is_hub():
-                            contig.tag = "lariat_hub_branching"
-                        else:
-                            contig.tag = "lariat_simple"
-                    else:
-                        contig.tag = "linear_simple" 
+                    contig.get_tag()
                     contigs.append(contig)
 
         if fork_in_hub:
@@ -780,13 +758,8 @@ class Dbg:
                     for start_edge in contig_start.outgoing:
                         if start_edge.visited:
                             continue
-                        remaining_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start)
-                        if remaining_contig.is_circular():
-                            remaining_contig.tag = "circular_fork_hub_residual"
-                        elif remaining_contig.is_lariat():
-                            remaining_contig.tag = "lariat_fork_hub_residual"
-                        else:
-                            remaining_contig.tag = "linear_fork_hub_residual"
+                        remaining_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start, remaining = True)
+                        remaining_contig.get_tag()
                         contigs.append(remaining_contig)
                     if all(edge.visited for edge in contig_start.outgoing):
                         remaining_hubs_seqs.remove(contig_start_seq)
@@ -803,13 +776,8 @@ class Dbg:
             while not_visited_edges:
                 start_edge = not_visited_edges[0]
                 start_node = start_edge.source
-                circ_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, start_node)
-                if circ_contig.is_circular():
-                    circ_contig.tag = "circular_isolated"
-                elif circ_contig.is_lariat():
-                    circ_contig.tag = "unknown_contig_type_lariat_like"
-                else:
-                    circ_contig.tag = "unknown_contig_type"
+                circ_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, start_node, circular = True)
+                circ_contig.get_tag()
                 contigs.append(circ_contig)
                 if circ_contig.tag == "circular_isolated":
                     circular_contigs += 1
