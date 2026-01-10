@@ -1,7 +1,23 @@
 class Contig:
     """
     """
-    def __init__(self, seq, start_node, final_node, walk_weights, receiving_hubs_visited, k, hub = False, bubble = False, tip = False, bubble_ends = (None, None), tip_hub = None, hub_seq = None, remaining = False, circular = False):
+    def __init__(
+        self,
+        seq,
+        start_node,
+        final_node,
+        walk_weights,
+        receiving_hubs_visited,
+        k,
+        hub=False,
+        bubble=False,
+        tip=False,
+        bubble_ends=(None, None),
+        tip_hub=None,
+        hub_seq=None,
+        remaining=False,
+        from_catch_all=False
+    ):
         self.seq = seq
         self.start_node = start_node
         self.final_node = final_node
@@ -12,7 +28,7 @@ class Contig:
         self.tip = tip
         self.hub = hub
         self.remaining = remaining
-        self.circular = circular
+        self.from_catch_all = from_catch_all
         self.tag = ""
         self.branch_kmer = None
         self.bubble_ends = bubble_ends
@@ -69,9 +85,9 @@ class Contig:
         return new
 
     @classmethod
-    def from_walk_linear(cls, walk_result, k, initial_node, hub = False, hub_seq = None, remaining = False, circular = False):
+    def from_walk_linear(cls, walk_result, k, initial_node, hub = False, hub_seq = None, remaining = False, from_catch_all = False):
         seq, final_node, weights, hubs = walk_result
-        return cls(seq, initial_node, final_node, weights, hubs, k, hub = hub, hub_seq = hub_seq, remaining = remaining, circular = circular)
+        return cls(seq, initial_node, final_node, weights, hubs, k, hub = hub, hub_seq = hub_seq, remaining = remaining, from_catch_all = from_catch_all)
 
     def __len__(self):
         return len(self.seq)
@@ -83,7 +99,10 @@ class Contig:
         return self.start_node == self.final_node
 
     def is_lariat(self):
-        if self.final_node.seq in self.receiving_hubs_visited and not self.is_circular():
+        internal_visited = self.receiving_hubs_visited.copy()
+        if self.final_node.seq in internal_visited:
+            internal_visited.remove(self.final_node.seq)
+        if self.final_node.seq in internal_visited and not self.is_circular():
             self.branch_kmer = self.final_node.seq
             return True
         else:
@@ -92,52 +111,101 @@ class Contig:
     def is_bubble_ending(self):
         return self.bubble and self.bubble_ends[1] == self.final_node.seq
     
+    def get_fasta_header(self, contig_id):
+        from statistics import median
+        # All k-mer sequences are truncated to 10 bp
+        median_cov = median(self.walk_weights) if self.walk_weights else 0
+        header_parts = [
+            f"contig_{contig_id}",
+            f"len={len(self)}",
+            f"tag={self.tag}",
+            f"cov={median_cov:.1f}"
+        ]
+
+        # 2. Metadati topologici condizionali (solo se attinenti)
+        if self.branch_kmer:
+            header_parts.append(f"branch={self.branch_kmer}")
+        
+        if self.bubble_ends != (None, None):
+            header_parts.append(f"bubble_ends={self.bubble_ends[0][:10]}..-{self.bubble_ends[1][:10]}..")
+        
+        if self.tip_hub:
+            header_parts.append(f"tip_from={self.tip_hub[:10]}..")
+            
+        if self.hub_seq:
+            header_parts.append(f"hub_origin={self.hub_seq[:10]}..")
+
+        # Uniamo tutto con il pipe
+        return ">" + "|".join(header_parts)
 
     def get_tag(self):
+        # ALL CIRCULAR NOT ISOLATED START FROM A HUB AND END IN HUB. RESIDUAL TUTTI START IN HUB
+        if self.start_node.is_hub():
+            hub_starting = "_hub_starting"
+        else:
+            hub_starting = ""
+        if self.final_node.is_hub():
+            hub_ending = "_hub_ending"
+        else:
+            hub_ending = ""
         if self.tip:
             self.tag = "linear_with_tip"
-        if self.is_circular():
+            return # Se tip non servono altri controlli, solo lineare
+        if self.is_circular(): # ALL CIRCULAR NOT ISOLATED START FROM A HUB
             if self.remaining:
                 self.tag = "circular_fork_hub_residual"
-            elif self.circular:
+            elif self.from_catch_all:
                 self.tag = "circular_isolated"
             elif self.is_bubble_ending():
-                self.tag = "circular_bubble_resolved_ending" 
+                self.tag = "circular_bubble_resolved_ending"
             elif self.bubble and not self.is_bubble_ending():
-                self.tag = "circular_with_bubble"
+                if self.hub:
+                    self.tag = "circular_with_bubble_through_hub"
+                else:
+                    self.tag = "circular_with_bubble"
             elif self.hub:
-                self.tag = "circular_through_hub"
+                self.tag = "circular_through_hub" 
             elif not self.hub and self.final_node.is_hub():
-                self.tag = "circular_ending_hub"
-            elif not self.hub:
-                self.tag = "circular_simple"
+                self.tag = "circular_self_loop_hub" # parte e ritorna da hub
+            else:
+                self.tag = "unknown_circular_like"
         elif self.is_lariat():
             if self.remaining:
-                self.tag = "lariat_fork_hub_residual"
-            elif self.circular:
-                self.tag = "unknown_contig_type_lariat_like"
+                self.tag = "lariat_fork_hub_residual" + hub_ending
+            elif self.from_catch_all:
+                self.tag = "unknown_lariat_like_from_catch_all" 
             elif self.is_bubble_ending():
-                self.tag = "lariat_bubble_resolved_ending"
+                self.tag = "lariat_bubble_resolved_ending" + hub_starting
             elif self.bubble and not self.is_bubble_ending():
-                self.tag = "lariat_with_bubble"
+                if self.hub:
+                    self.tag = "lariat_with_bubble_through_hub" + hub_starting + hub_ending
+                else:
+                    self.tag = "lariat_with_bubble" + hub_starting + hub_ending
             elif self.hub:
-                self.tag = "lariat_through_hub"
+                self.tag = "lariat_through_hub" + hub_starting
             elif not self.hub and self.final_node.is_hub():
-                self.tag = "lariat_hub_branching"
+                self.tag = "lariat_branch_at_hub" + hub_starting
             elif not self.hub:
-                self.tag = "lariat_simple"
+                self.tag = "lariat_simple" + hub_starting
+            else:
+                self.tag = "unknown_lariat_like" + hub_starting + hub_ending
         else:
             if self.remaining:
-                self.tag = "linear_fork_hub_residual"
-            elif self.circular:
-                self.tag = "unknown_contig_type"
+                self.tag = "linear_fork_hub_residual" + hub_ending
+            elif self.from_catch_all:
+                self.tag = "unknown_linear_like_from_catch_all"
             elif self.is_bubble_ending():
-                self.tag = "linear_bubble_resolved_ending"
+                self.tag = "linear_bubble_resolved_ending" + hub_starting + hub_ending
             elif self.bubble and not self.is_bubble_ending():
-                self.tag = "linear_bubble_resolved_extended"
+                if self.hub:
+                    self.tag = "linear_bubble_resolved_extended_through_hub" + hub_starting + hub_ending
+                else:
+                    self.tag = "linear_bubble_resolved_extended" + hub_starting + hub_ending
             elif not self.bubble and not self.tip and self.hub:
-                self.tag = "linear_through_hub"
+                self.tag = "linear_through_hub" + hub_starting + hub_ending
             elif not self.hub and self.final_node.is_hub():
-                self.tag = "linear_ending_hub"
+                self.tag = "linear_hub_ending" + hub_starting
             elif not self.hub:
-                self.tag = "linear_simple"
+                self.tag = "linear_simple" + hub_starting
+            else:
+                self.tag = "unknown_linear_like" + hub_starting + hub_ending

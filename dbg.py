@@ -272,20 +272,23 @@ class Dbg:
 
         try:
             with open(output_filename, "w") as f:
-                i = 0
-                for contig in self.contigs:
+                for i, contig in enumerate(self.contigs):
                     if len(contig) < min_len:
                         continue
-                    median_cov = median(contig.walk_weights) if contig.walk_weights else 0
-                    f.write(f">contig_{i + 1} len={len(contig)} tag={contig.tag} median_cov={median_cov}\n")
-                    if verbose:
-                        print(f"Written contig_{i + 1} len={len(contig)} tag={contig.tag} median_cov={median_cov}")
+                    
+                    # Chiamata al metodo che genera l'header complesso
+                    header = contig.get_fasta_header(i + 1)
+                    
+                    f.write(f"{header}\n")
                     f.write(f"{contig.seq}\n")
+                    
                     saved_lengths.append(len(contig))
                     count += 1
-                    i += 1
+                    
+                    if verbose:
+                        print(f"Written {header}")
 
-            print(f"File saved: {output_filename} ({count} contigs written, min_len={min_len})")
+            print(f"File saved: {output_filename} ({count} contigs, min_len={min_len})")
             self.contigs_written = True
             self.contigs_output_fasta = output_filename
             return saved_lengths
@@ -694,10 +697,14 @@ class Dbg:
                 whole_contig.get_tag()
                 contigs.append(whole_contig)
         else:
+            if new_start_node.is_hub():
+                new_hub_seq = new_start_node.seq
+            else:
+                new_hub_seq = None
             for new_start_edge in new_start_node.outgoing:
                 if new_start_edge.visited:
                     continue
-                new_contig = Contig.from_walk_linear(self._walk_linear(new_start_edge), self.k, new_start_node, hub = True, hub_seq = bubble_to_assemble.dest_node.seq) #continua a camminare dopo la chiusura della bolla
+                new_contig = Contig.from_walk_linear(self._walk_linear(new_start_edge), self.k, new_start_node, hub = new_start_node.is_hub(), hub_seq = new_hub_seq) #continua a camminare dopo la chiusura della bolla
                 for alt_contig in alternative_paths:
                     whole_contig = common_contig + alt_contig + new_contig
                     whole_contig.get_tag()
