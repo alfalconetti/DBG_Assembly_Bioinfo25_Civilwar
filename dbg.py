@@ -15,28 +15,33 @@ from statistics import median
 import warnings
 
 class Dbg:
-    # COSTRUZIONE
-    ### Dizionario nodi e archi
-    ### Arrivano le sequenze parsate
-    ### Genero k-mers
-    ### Calcolo prefisso e suffisso
-    ### Se k-mero nel dizionario degli archi aumento molteplicità
-    ### Altrimenti, controllo se ho un oggetto tra nodo prefix e suffix
-    ### Altrimenti creo oggetto nodo prefix e/o oggetto nodo suffix 
-    ### Se creo nodi alla fine creo arco
-    ### In generale aggiungo archi alla lista di archi in entrata e uscita dei nodi
-
-    # PRUNING
-    ### Tolgo edges a troppo bassa molteplicity
-
-    # CAMMINO
-    ### Parto casualmente, arrivo fino a un hub (outbound edges > 2)
-    ### Se riesco risolvo, altrimenti mi fermo
     """
-
+    De Bruijn Graph (DBG) Assembly Engine.
+    
+    This class manages the full genome assembly process: from read parsing 
+    and graph construction to topological pruning (bubbles/tips/short islands) and 
+    final contig extraction and writing to output files .
     """
 
     def __init__(self, k, file_name, file_type, paired = False, file_nameR2 = None, reverse_r2 = False):
+        """
+        Initializes the DBG with assembly parameters and input file metadata.
+
+        :param k: K-mer length (must be odd for better topology).
+        :type k: int
+        :param file_name: Path to the R1 sequence file.
+        :type file_name: str
+        :param file_type: Format that must be one of ('fasta', 'fastq', 'fa', 'fq').
+        :type file_type: str
+        :param paired: Boolean for paired-end data. If true, a second file needs to be provided and both will be used 
+                       to build graph
+        :type paired: bool
+        :param file_nameR2: Path to the R2 sequence file (optional).
+        :type file_nameR2: str or None
+        :param reverse_r2: Whether to reverse complement R2 reads. Useful if you don't want to use both strands and you
+                           know that your sequencer already reverse complemented the reads
+        :type reverse_r2: bool
+        """
         if not isinstance(k, int):
             raise TypeError('k parameter must be integer')
         if not isinstance(file_name, str):
@@ -402,7 +407,7 @@ class Dbg:
                     curr = next_edge.destination
 
                 #se il percorso è valido e chiuso
-                if valid and curr.is_receiving_hub():
+                if valid and curr.is_receiving_hub() and curr.seq != fork_node.seq:
                     dest_seq = curr.seq
                     if dest_seq not in candidates: 
                         candidates[dest_seq] = []
@@ -646,6 +651,22 @@ class Dbg:
 
 
     def _walk_linear(self, start_edge):
+        """
+        Performs a linear traversal of the graph starting from a specific edge.
+        
+        The traversal continues as long as nodes have an out-degree of 1 and 
+        the next edge has not been visited yet. It assembles linear segments of DNA and stops
+        as soon as there is no more linearity.
+
+        :param start_edge: The Edge object where the traversal begins.
+        :type start_edge: Edge
+        :return: A tuple containing:
+            - seq (str): The assembled DNA sequence.
+            - curr (Node): The final node reached (where the path forks or ends).
+            - walk_weights (list[int]): List of coverage weights for each edge walked.
+            - receiving_hubs_visited (set[str]): K-mers of convergence (receiving hubs) nodes encountered.
+        :rtype: tuple
+        """
         start_edge.visited = True
         seq = start_edge.seq
         curr = start_edge.destination
@@ -667,6 +688,20 @@ class Dbg:
         return seq, curr, walk_weights, receiving_hubs_visited
 
     def _checks_and_create_starts(self, fork_in_hub):
+        """
+        Validates graph state and identifies starting points for assembly.
+        
+        Gives warning if bubbles, tips, and isolated contigs have not been processed 
+        before starting. If fork_in_hub is True, only nodes with in-degree 0 
+        are considered starts. Otherwise, internal hubs are also included because walking 
+        linearly will stop at each hub.
+
+        :param fork_in_hub: If True, restricts starting points to source nodes (In-degree 0).
+        :type fork_in_hub: bool
+        :raises RuntimeError: If the graph has not been built.
+        :return: A list of Node objects from which assembly will initiate.
+        :rtype: list[Node]
+        """
         if not self.graph_built:
             raise RuntimeError("You cannot assemble contigs in a graph if it does not exist")
         if not self.bubbles_processed:
@@ -685,8 +720,25 @@ class Dbg:
         return all_starts
 
     def _assemble_bubble(self, bubble_to_assemble, common_contig):
+        """
+        Resolves a bubble structure by integrating all its paths with the current 
+        preceeding contig.
+        
+        For each path in the bubble, it creates a new Contig instance that 
+        combines the prefix (common_contig), the bubble branch, and any 
+        sequence following the bubble's destination node using the solid addition
+        logic of the contig class.
+        It creates up to n_bubble_paths * n_final_node_paths contigs 
+
+        :param bubble_to_assemble: The Bubble object to resolve.
+        :type bubble_to_assemble: Bubble
+        :param common_contig: The Contig instance preceding the bubble.
+        :type common_contig: Contig
+        :return: A list of fully assembled and tagged Contig objects (one for each of the possible contigs).
+        :rtype: list[Contig]
+        """
         contigs = []
-        for path in bubble_to_assemble.paths: #per ciasun path della bolla
+        for path in bubble_to_assemble.paths: #per ciascun path della bolla
             for edge in path: #per ciascun edge nel path
                 edge.visited = True
         alternative_paths = list(bubble_to_assemble._get_contigs_from_path(self.k)) #lista di oggetti contig con sequenza e lista pesi
@@ -718,6 +770,24 @@ class Dbg:
         return contigs
 
     def assemble_contigs(self, fork_in_hub = False):
+        """
+        The full assembly engine. Orchestrates the global traversal of the graph.
+        
+        The process follows four main stages:
+        1. Primary traversal from identified start nodes, stopping as soon as a linear contig ends if
+           fork_in_hub is false, otherwise trying to solve it.
+        2. Structural resolution (Bubbles/Tips/simple forks) if an intersection is met and fork_in_hub is True.
+        3. Residual hub processing (if fork_in_hub is True) to capture segments starting in secondary hubs.
+        4. "Catch-all" circular search for isolated loops (circular DNA elements). It keeps going until all edges are visited
+
+        All generated contigs are automatically classified (tagged), 
+        deduplicated, and sorted by length for easier stats calculation and visualization.
+
+        :param fork_in_hub: If True, breaks assembly at hub nodes to increase accuracy.
+        :type fork_in_hub: bool
+        :return: A list of unique, topologically classified Contig objects.
+        :rtype: list[Contig]
+        """
         all_starts = self._checks_and_create_starts(fork_in_hub)
         contigs = []
         contigs_forked_in_hub = False
@@ -754,7 +824,8 @@ class Dbg:
                             whole_contig.get_tag()
                             contigs.append(whole_contig)
                 if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
-                    if contig.start_node.seq in self.bubbles:
+                    # Marco che ho trovato un contig che inizia in una bolla o un tip
+                    if contig.start_node.seq in self.bubbles: 
                         contig.bubble = True
                         contig.bubble_ends = (contig.start_node, self.bubbles[contig.start_node.seq].dest_node)
                     elif contig.start_node.seq in self.tips:
@@ -773,6 +844,12 @@ class Dbg:
                         if start_edge.visited:
                             continue
                         remaining_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start, remaining = True)
+                        if remaining_contig.start_node.seq in self.bubbles:
+                            remaining_contig.bubble = True
+                            remaining_contig.bubble_ends = (remaining_contig.start_node, self.bubbles[remaining_contig.start_node.seq].dest_node)
+                        elif remaining_contig.start_node.seq in self.tips:
+                            remaining_contig.tip = True
+                            remaining_contig.tip_hub = remaining_contig.start_node
                         remaining_contig.get_tag()
                         contigs.append(remaining_contig)
                     if all(edge.visited for edge in contig_start.outgoing):
