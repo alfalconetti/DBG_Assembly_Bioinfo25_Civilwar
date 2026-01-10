@@ -1,5 +1,43 @@
 class Contig:
     """
+    Represents an assembled contig with all the necessary attributes
+    for statistics and for topological classification.
+    
+    A Contig is the result of walking through the De Bruijn Graph,
+    potentially traversing bubbles, tips, and hubs.
+    
+    :ivar seq: Assembled DNA sequence
+    :type seq: str
+    :ivar start_node: Node where the contig begins
+    :type start_node: Node
+    :ivar final_node: Node where the contig ends
+    :type final_node: Node
+    :ivar walk_weights: Coverage weights for each k-mer in the path
+    :type walk_weights: list[int]
+    :ivar receiving_hubs_visited: Set of receiving hub k-mers encountered
+    :type receiving_hubs_visited: set[str]
+    :ivar k: K-mer size
+    :type k: int
+    :ivar hub: Whether the contig traversed through a hub
+    :type hub: bool
+    :ivar bubble: Whether the contig includes a resolved bubble
+    :type bubble: bool
+    :ivar tip: Whether the contig includes an assembled tip
+    :type tip: bool
+    :ivar remaining: Whether from fork_in_hub residual processing
+    :type remaining: bool
+    :ivar from_catch_all: Whether from final circular/isolated search
+    :type from_catch_all: bool
+    :ivar tag: Topological classification tag
+    :type tag: str
+    :ivar branch_kmer: K-mer where lariat branches (for lariat structures)
+    :type branch_kmer: str or None
+    :ivar bubble_ends: (source_seq, dest_seq) of bubble if present
+    :type bubble_ends: tuple[str, str]
+    :ivar tip_hub: Hub k-mer where tip originated
+    :type tip_hub: str or None
+    :ivar hub_seq: K-mer of hub traversed
+    :type hub_seq: str or None
     """
     def __init__(
         self,

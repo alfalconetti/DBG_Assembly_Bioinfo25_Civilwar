@@ -754,6 +754,12 @@ class Dbg:
                             whole_contig.get_tag()
                             contigs.append(whole_contig)
                 if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
+                    if contig.start_node.seq in self.bubbles:
+                        contig.bubble = True
+                        contig.bubble_ends = (contig.start_node, self.bubbles[contig.start_node.seq].dest_node)
+                    elif contig.start_node.seq in self.tips:
+                        contig.tip = True
+                        contig.tip_hub = contig.start_node
                     contig.get_tag()
                     contigs.append(contig)
 

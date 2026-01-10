@@ -95,7 +95,7 @@ def seqParserFastq(f, quality = False):
         elif n_row == 3:
             qual_string = row.strip()
             if len(qual_string) != len(sequence):
-                raise ValueError(f"Mismatching length of quality and sequence string at row {i}. Check your file")
+                raise ValueError(f"Mismatching length of quality and sequence string at row {i+1}. Check your file")
             if quality:
                 yield (sequence, qual_string)
             else:
