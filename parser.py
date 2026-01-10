@@ -1,11 +1,12 @@
-def parser(file_name, file_type, quality = False): ##FASTA o FASTQ
+def parser(file_name, file_type, quality = False, verbose = True): ##FASTA o FASTQ
     if not isinstance(quality, bool):
         raise TypeError("quality must be boolean")
     if file_type not in ("fasta", "fastq"):
         raise ValueError("Only allowed flags are 'fasta' and 'fastq'")
     if quality and file_type == 'fasta':
         print("You can't use quality flag for FASTA")
-    print(f"Opening {file_name} for parsing")
+    if verbose:
+        print(f"Opening {file_name} for parsing")
     f = checkOpenFastFile(file_name, file_type)
     try:
         if file_type == 'fasta':

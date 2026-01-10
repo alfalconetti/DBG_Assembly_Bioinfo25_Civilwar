@@ -92,8 +92,8 @@ class Dbg:
         self.bubbles = {}
         self.tips = {}
 
-    def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True):
-        def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False):
+    def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True, verbose=True):
+        def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False, verbose=True):
             reads_discarded = 0
             for read_tup in reads:
                 read = read_tup[0]
@@ -107,7 +107,7 @@ class Dbg:
                         reads_discarded += 1
                 else:
                     self.add_read(read, use_both_strands = use_both_strands)
-            if quality_check:
+            if quality_check and verbose:
                 print(f"Discarded {reads_discarded} reads due to low median quality")
             return reads_discarded
 
@@ -124,11 +124,11 @@ class Dbg:
         if self.reverse_r2 and use_both_strands:
             print("You are using both strands after setting reverse_r2 to True. This wil override reverse_r2")
 
-        reads1 = parser(file_name=self.file_nameR1, file_type=self.file_type, quality= quality_check) #generator
-        put_reads_graph(reads1, quality_check, reverse_complement = False, use_both_strands = use_both_strands)
+        reads1 = parser(file_name=self.file_nameR1, file_type=self.file_type, quality= quality_check, verbose = verbose) #generator
+        put_reads_graph(reads1, quality_check, reverse_complement = False, use_both_strands = use_both_strands, verbose = verbose)
         if self.paired:
-            reads2 = parser(file_name=self.file_nameR2, file_type=self.file_type, quality= quality_check) #generator
-            put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2, use_both_strands = use_both_strands)
+            reads2 = parser(file_name=self.file_nameR2, file_type=self.file_type, quality= quality_check, verbose = verbose) #generator
+            put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2, use_both_strands = use_both_strands, verbose = verbose)
         self.graph_built = True
         
     def add_read(self, read: str, use_both_strands: bool):
@@ -171,7 +171,7 @@ class Dbg:
                 node_suffix.incoming.append(new_edge)
 
     
-    def prune_graph(self, threshold: int=2):
+    def prune_graph(self, threshold: int=2, verbose: bool=True):
         """
             Removes edges with low coverage to clean up sequencing errors.
 
@@ -180,6 +180,8 @@ class Dbg:
 
             :param threshold: Edges with weight < threshold will be deleted. Defaults to 2.
             :type threshold: int
+            :param verbose: If True, it will print details about the pruned edges and nodes
+            :type verbose: bool
             :raises RuntimeError: If called before the graph is built.
         """
         if not self.graph_built:
@@ -205,8 +207,9 @@ class Dbg:
             del self.edges[kmer] #rimuovo dal dict
             count += 1
         
-        print(f"{count} edges removed")
-        self._rm_isolated_nodes()
+        if verbose:
+            print(f"{count} edges removed")
+        self._rm_isolated_nodes(verbose)
         self.pruned_graph = True
 
     def get_graph_stats(self):
@@ -287,8 +290,8 @@ class Dbg:
                     
                     if verbose:
                         print(f"Written {header}")
-
-            print(f"File saved: {output_filename} ({count} contigs, min_len={min_len})")
+            if verbose:
+                print(f"File saved: {output_filename} ({count} contigs, min_len={min_len})")
             self.contigs_written = True
             self.contigs_output_fasta = output_filename
             return saved_lengths
@@ -329,7 +332,7 @@ class Dbg:
                 return length #n50
 
 
-    def _rm_isolated_nodes(self):
+    def _rm_isolated_nodes(self, verbose: str=True):
         """
             Helper method to remove nodes that have no connections.
         """
@@ -340,8 +343,8 @@ class Dbg:
         
         for kmer in nodes_to_rm:
             del self.nodes[kmer]
-        
-        print(f"removed {len(nodes_to_rm)} isolated nodes")
+        if verbose:
+            print(f"Removed {len(nodes_to_rm)} isolated nodes")
 
 
     def _rm_path_edges(self, path: list["Edge"]):
@@ -411,14 +414,18 @@ class Dbg:
                     dest_node = self.nodes[dest_seq]
                     yield Bubble(fork_node, dest_node, paths) #restituisco l'oggetto bolla
 
-    def process_bubbles(self, cov_threshold: int=5) -> int:
+    def process_bubbles(self, cov_threshold: int=5, ratio_threshold: float=0.1, verbose: bool=True) -> int:
         """
             Iteratively finds and resolves bubbles in the graph.
             This method keeps calling  `_detect_bubbles` and solving them until no more
             bubbles can be resolved. It handles nested bubbles by running multiple iterations.
 
-            :param cov_threshold: Coverage threshold used to distinguish errors from real variants.
+            :param cov_threshold: Coverage threshold used to distinguish errors from real variants. Defaults to 5
             :type cov_threshold: int
+            :param ratio_threshold: Ratio threshold used to distinguish between multiple paths in a bubble when over coverage
+            :param ratio_threshold: float
+            :param verbose: If True, prints details about every iteration of processing bubbles.
+            :type verbose: bool
             :return: Total number of bubbles resolved (popped).
             :rtype: int
         """
@@ -436,23 +443,23 @@ class Dbg:
             try:
                 for bubble in self._detect_bubbles(max_len):
                     found_bubbles = True
-                    if bubble._resolve(self, cov_threshold):
+                    if bubble._resolve(self, cov_threshold, ratio_threshold):
                         popped_count += 1
             except ValueError:
                 print("There have been problem in tips detection. You can't perform the operation")
                 break
             if not found_bubbles: #sono tutte risolte
                 break
-
-            print(f"Iteration {iteration}: {popped_count} bubbles popped")
+            if verbose:
+                print(f"Iteration {iteration}: {popped_count} bubbles popped")
             if popped_count == 0: #magari ci sono ancora bolle, ma non vengono risolte
                 for bubble in self._detect_bubbles(max_len):
-                    self.bubbles[bubble.source.seq] = bubble
+                    self.bubbles[bubble.source_node.seq] = bubble
                 break
             removed_bubbles += popped_count
             iteration += 1
 
-        self._rm_isolated_nodes()
+        self._rm_isolated_nodes(verbose)
         self.bubbles_processed = True
         return removed_bubbles
 
@@ -521,7 +528,7 @@ class Dbg:
                 yield Tip(initial_node, curr, path, 2)
 
 
-    def process_tips(self, cov_threshold: int=5) -> int:
+    def process_tips(self, cov_threshold: int=5, verbose: bool=True) -> int:
         """
             Iteratively removes dead ends (Tips) from the graph.
 
@@ -530,6 +537,8 @@ class Dbg:
 
             :param cov_threshold: Coverage threshold to confirm a tip is an error.
             :type cov_threshold: int
+            :param verbose: If True, prints details about every iteration of processing tips.
+            :type verbose: bool
             :return: Total number of tips removed.
             :rtype: int
         """
@@ -551,8 +560,8 @@ class Dbg:
 
             if not found_tips:
                 break
-
-            print(f"Iteration {iteration}: {removed_count} tips popped")
+            if verbose:
+                print(f"Iteration {iteration}: {removed_count} tips popped")
             if removed_count == 0: #magari ci sono ancora tips ma non vanno eliminate
                 for tip in self._detect_tips(max_len):
                     self.tips[tip.initial_node.seq] = tip
@@ -560,21 +569,12 @@ class Dbg:
             removed_tips += removed_count
             iteration += 1
 
-        self._rm_isolated_nodes()
+        self._rm_isolated_nodes(verbose)
         self.tips_processed = True
         return removed_tips
 
-    def process_short_islands(self):
+    def process_short_islands(self, verbose: bool=True):
         """
-            Iteratively removes dead ends (Tips) from the graph.
-
-            This effectively "shaves" the hairy parts of the graph caused by
-            sequencing errors at the ends of reads.
-
-            :param cov_threshold: Coverage threshold to confirm a tip is an error.
-            :type cov_threshold: int
-            :return: Total number of tips removed.
-            :rtype: int
         """
         if not self.graph_built:
             raise RuntimeError("You cannot process islands in a graph if it does not exist")
@@ -635,11 +635,12 @@ class Dbg:
             for k in nodes_to_delete:
                 if k in self.nodes:
                     del self.nodes[k]
-
-            print(
-                f"Island Removal: Deleted {deleted_islands} short islands (< {min_len}bp). Removed {len(nodes_to_delete)} nodes.")
+            if verbose:
+                print(
+                    f"Island Removal: Deleted {deleted_islands} short islands (< {min_len}bp). Removed {len(nodes_to_delete)} nodes.")
         else:
-            print("Island Removal: No short islands found.")
+            if verbose:
+                print("Island Removal: No short islands found.")
         self.isolated_contigs_removed = True
         return deleted_islands
 
@@ -783,7 +784,7 @@ class Dbg:
             while not_visited_edges:
                 start_edge = not_visited_edges[0]
                 start_node = start_edge.source
-                circ_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, start_node, circular = True)
+                circ_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, start_node, from_catch_all = True)
                 circ_contig.get_tag()
                 contigs.append(circ_contig)
                 if circ_contig.tag == "circular_isolated":
@@ -809,6 +810,7 @@ class Dbg:
                 deduplicated_contigs.append(contig)
             checked.add(contig.seq)
             checked.add(rc(contig.seq))
+        deduplicated_contigs.sort(key=lambda x: len(x.seq), reverse=True)
         self.contigs_forked_in_hub = contigs_forked_in_hub
         self.contigs = deduplicated_contigs
         self.contigs_assembled = True

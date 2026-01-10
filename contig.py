@@ -99,10 +99,9 @@ class Contig:
         return self.start_node == self.final_node
 
     def is_lariat(self):
-        internal_visited = self.receiving_hubs_visited.copy()
-        if self.final_node.seq in internal_visited:
-            internal_visited.remove(self.final_node.seq)
-        if self.final_node.seq in internal_visited and not self.is_circular():
+        if self.is_circular():
+            return False
+        if self.final_node.seq in self.receiving_hubs_visited and self.final_node.seq in self.seq[:-1]:
             self.branch_kmer = self.final_node.seq
             return True
         else:

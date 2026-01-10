@@ -48,7 +48,7 @@ class Bubble:
         weights = [edge.weight for edge in path]
         return median(weights)
 
-    def _resolve(self, graph: "Dbg", cov_threshold: int, ratio_threshold: float =0.1) -> bool:
+    def _resolve(self, graph: "Dbg", cov_threshold: int, ratio_threshold: float) -> bool:
         """
             Attempts to "pop" the bubble by removing low-quality paths.
 
