@@ -578,7 +578,7 @@ class Dbg:
         self.tips_processed = True
         return removed_tips
 
-    def process_short_islands(self, verbose: bool=True):
+    def process_short_islands(self, verbose: bool=True) -> int:
         """
             Identifies and removes isolated connected components ("islands") that are
             shorter than a safety threshold.
@@ -593,6 +593,9 @@ class Dbg:
         """
         if not self.graph_built:
             raise RuntimeError("You cannot process islands in a graph if it does not exist")
+        if not isinstance(verbose, bool):
+            raise TypeError("verbose must be boolean")
+
         min_len = (self.k * 2) + 1
 
         visited_nodes = set() #set nodi visti

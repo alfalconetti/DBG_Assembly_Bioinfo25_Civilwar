@@ -1,7 +1,9 @@
 # README WORK IN PROGRESS
 # De Bruijn Graph Assembler & Contig Classifier
 
-This project is a DNA assembler based on De Brujn Graph
+This tool implements a genome assembler based on the De Bruijn Graph formalism. It accepts k-mer inputs to construct the graph structure and performs a topology-aware assembly process.
+
+Unlike standard greedy assemblers, this implementation explicitly identifies and handles graph complexities such as sequencing artifacts (tips), allelic variants (bubbles), and isolated components. The assembly engine traces paths through the graph and assigns a specific topological class to each generated contig, providing granular insights into the graph structure directly in the output metadata.
 ## Key Features
 
 - **Structural Variant Resolution:** Automated handling of *bubbles* (allelic variants/paralogs) and *tips* (sequencing artifacts) during path extension.
