@@ -793,18 +793,19 @@ class Dbg:
         All generated contigs are automatically classified (tagged), 
         deduplicated, and sorted by length for easier stats calculation and visualization.
 
-        :param fork_in_hub: If True, breaks assembly at hub nodes to increase accuracy.
+        :param fork_in_hub: If False, breaks assembly at hub nodes to increase accuracy.
         :type fork_in_hub: bool
         :return: A list of unique, topologically classified Contig objects.
         :rtype: list[Contig]
         """
-        all_starts = self._checks_and_create_starts(fork_in_hub)
+        all_starts = self._checks_and_create_starts(fork_in_hub) #lista nodi di inizio
         contigs = []
         contigs_forked_in_hub = False
         for contig_start in all_starts:
             for start_edge in contig_start.outgoing:
-                if start_edge.visited:
+                if start_edge.visited: #strada già percorsa
                     continue
+                #creazione oggetto conting con il classmethod, uso _walk.linear che cammina fin quando trova bivio o finisce la strada
                 contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start)
                 forked = False
                 if contig.final_node.is_hub() and fork_in_hub and not (contig.is_lariat() or contig.is_circular()):
@@ -813,23 +814,23 @@ class Dbg:
                     common_contig = contig.copy()
                     if contig.final_node.seq in self.bubbles and not self.bubbles[contig.final_node.seq].visited: #è l'inizio di una bolla non già visitata
                         bubble_to_assemble = self.bubbles[contig.final_node.seq] #prendo la bolla
-                        bubble_contigs = self._assemble_bubble(bubble_to_assemble, common_contig)
-                        contigs.extend(bubble_contigs)
+                        bubble_contigs = self._assemble_bubble(bubble_to_assemble, common_contig) #lista di contigs
+                        contigs.extend(bubble_contigs) #extend altrimenti append inserirebbe una lista
                     elif contig.final_node.seq in self.tips and not self.tips[contig.final_node.seq].visited:
-                        tip_to_assemble = self.tips[contig.final_node.seq]
+                        tip_to_assemble = self.tips[contig.final_node.seq]  #prendo la tip
                         for edge in tip_to_assemble.path:
                             edge.visited = True
-                        tip_contig = tip_to_assemble._get_contig_from_path(self.k)
+                        tip_contig = tip_to_assemble._get_contig_from_path(self.k) #creo l'oggetto contig
                         tip_to_assemble.visited = True
-                        whole_contig = common_contig + tip_contig
+                        whole_contig = common_contig + tip_contig #grazie al magicmethod
                         whole_contig.get_tag()
                         contigs.append(whole_contig)
-                    else: #non è una bolla
+                    else: #non è una bolla o una tip
                         new_start_node = contig.final_node
                         for new_start_edge in new_start_node.outgoing:
                             if new_start_edge.visited:
                                 continue
-                            new_contig = Contig.from_walk_linear(self._walk_linear(new_start_edge), self.k, new_start_node, hub = True, hub_seq = common_contig.final_node.seq)
+                            new_contig = Contig.from_walk_linear(self._walk_linear(new_start_edge), self.k, new_start_node, hub = True, hub_seq = common_contig.final_node.seq) #creo contig
                             whole_contig = common_contig + new_contig
                             whole_contig.get_tag()
                             contigs.append(whole_contig)
@@ -845,15 +846,16 @@ class Dbg:
                     contigs.append(contig)
 
         if fork_in_hub:
-            # hubs restanti poiché fork_in_hub si ferma dopo un livello
+            #hubs restanti poiché fork_in_hub si ferma dopo un livello
+            #set di hub con almeno un arco non esplorato
             remaining_hubs_seqs = {node.seq for node in self.nodes.values() if len(node.incoming) > 0 and node.is_hub() and any(not edge.visited for edge in node.outgoing)}
             while remaining_hubs_seqs:
                 for contig_start_seq in list(remaining_hubs_seqs):
-                    contig_start = self.nodes[contig_start_seq]
+                    contig_start = self.nodes[contig_start_seq] #nodo inizio
                     for start_edge in contig_start.outgoing:
                         if start_edge.visited:
                             continue
-                        remaining_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start, remaining = True)
+                        remaining_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start, remaining = True) #creo contig
                         if remaining_contig.start_node.seq in self.bubbles:
                             remaining_contig.bubble = True
                             remaining_contig.bubble_ends = (remaining_contig.start_node, self.bubbles[remaining_contig.start_node.seq].dest_node)
@@ -862,8 +864,8 @@ class Dbg:
                             remaining_contig.tip_hub = remaining_contig.start_node
                         remaining_contig.get_tag()
                         contigs.append(remaining_contig)
-                    if all(edge.visited for edge in contig_start.outgoing):
-                        remaining_hubs_seqs.remove(contig_start_seq)
+                    if all(edge.visited for edge in contig_start.outgoing): #controllo che abbiamo visitato tutte le uscite dall'hub
+                        remaining_hubs_seqs.remove(contig_start_seq) #se si, rimuovo
 
         not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
         if len(not_visited_edges) == 0:
@@ -875,9 +877,9 @@ class Dbg:
             circular_contigs = 0
             unknown_contigs = 0
             while not_visited_edges:
-                start_edge = not_visited_edges[0]
+                start_edge = not_visited_edges[0] #un arco a caso
                 start_node = start_edge.source
-                circ_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, start_node, from_catch_all = True)
+                circ_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, start_node, from_catch_all = True) #creo contig
                 circ_contig.get_tag()
                 contigs.append(circ_contig)
                 if circ_contig.tag == "circular_isolated":
@@ -885,7 +887,7 @@ class Dbg:
                 else:
                     print(f"Contig found with unknown topology {len(circ_contig)}")
                     unknown_contigs += 1
-                not_visited_edges = [edge for edge in self.edges.values() if not edge.visited]
+                not_visited_edges = [edge for edge in self.edges.values() if not edge.visited] #aggiorno la lista
             print(f"All edges have been now visited. Saved {circular_contigs} circular contigs")
             print(f"Saved {unknown_contigs} contigs of unknown topology")
         # Reset visited per poter riusare l'assembly
@@ -903,7 +905,7 @@ class Dbg:
                 deduplicated_contigs.append(contig)
             checked.add(contig.seq)
             checked.add(rc(contig.seq))
-        deduplicated_contigs.sort(key=lambda x: len(x.seq), reverse=True)
+        deduplicated_contigs.sort(key=lambda x: len(x.seq), reverse=True) #ordina dal più lungo al più corto
         self.contigs_forked_in_hub = contigs_forked_in_hub
         self.contigs = deduplicated_contigs
         self.contigs_assembled = True
