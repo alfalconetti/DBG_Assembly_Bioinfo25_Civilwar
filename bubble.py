@@ -103,10 +103,12 @@ class Bubble:
             It walks through the edges of each path, stitching the k-mers together
             (handling the k-1 overlap) and collecting the coverage weights.
 
-            :yield: A tuple containing (assembled_sequence, list_of_weights).
-            :rtype: Iterator[tuple[str, list[int]]]
+            :param k: The k-mer length used for the assembly
+            :type k: int
+            :yield: A fully initialized Contig instance representing one of the bubble's branches
+            :rtype: Iterator[Contig]
         """
-        for path in self.paths: #generatore di sequenza e lista pesi per ciascun path(lista edge)
+        for path in self.paths: #generatore Contig
             sequence = path[0].seq
             path_weights = [path[0].weight]
             receiving_hubs_visited = set()

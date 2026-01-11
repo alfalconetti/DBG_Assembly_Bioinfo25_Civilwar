@@ -84,12 +84,24 @@ class Tip:
         """
         popped = False
         cov = self._get_path_coverage(self.path)
-        if cov < cov_threshold: #sotto treshold, da rimuovere
+        if cov < cov_threshold: #sotto threshold, da rimuovere
             graph._rm_path_edges(self.path) #rimozione di quel path
             popped = True
         return popped
 
     def _get_contig_from_path(self, k):
+        """
+            Reconstructs the DNA sequence for the tip (dead-end branch).
+
+            It walks through the edges from the branching hub to the sink node,
+            stitching the k-mers together (handling the k-1 overlap) and collecting
+            coverage weights.
+
+            :param k: The k-mer length used for the assembly.
+            :type k: int
+            :return: A fully initialized Contig instance representing the dead-end path.
+            :rtype: Contig
+        """
         sequence = self.path[0].seq
         path_weights = [self.path[0].weight]
         receiving_hubs_visited = set()

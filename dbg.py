@@ -580,6 +580,16 @@ class Dbg:
 
     def process_short_islands(self, verbose: bool=True):
         """
+            Identifies and removes isolated connected components ("islands") that are
+            shorter than a safety threshold.
+            This method performs a global cleanup of the graph by finding all disconnected
+            subgraphs.
+
+            :param verbose: If True, prints statistics about the removal process to stdout.
+            :type verbose: bool
+            :return: The number of independent islands removed.
+            :rtype: int
+            :raises RuntimeError: If the graph has not been built yet.
         """
         if not self.graph_built:
             raise RuntimeError("You cannot process islands in a graph if it does not exist")
@@ -619,7 +629,7 @@ class Dbg:
                         to_visit.append(neighbor)
 
 
-            #Formula: L = k + (N - 1)
+            #formula: L = k + (N - 1)
             num_nodes = len(island_nodes)
             seq_len_bp = self.k + (num_nodes - 1)
 
