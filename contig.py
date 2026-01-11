@@ -53,16 +53,16 @@ class Contig:
         start_node,
         final_node,
         walk_weights,
-        receiving_hubs_visited,
-        k,
+        receiving_hubs_visited, #per rilevare contig a cappio ed evitare loop
+        k, #serve ad __add__
         hub=False,
         bubble=False,
         tip=False,
-        bubble_ends=(None, None),
+        bubble_ends=(None, None), #tupla con sequenza inizio e fine bolla
         tip_hub=None,
         hub_seq=None,
         remaining=False,
-        from_catch_all=False
+        from_catch_all=False #ultimo caso, circolari
     ):
         """
         Initializes a new Contig instance. 
@@ -110,8 +110,8 @@ class Contig:
         self.hub = hub
         self.remaining = remaining
         self.from_catch_all = from_catch_all
-        self.tag = ""
-        self.branch_kmer = None
+        self.tag = "" #riempito da get_tag
+        self.branch_kmer = None #dove il laccio si chiude
         self.bubble_ends = bubble_ends
         self.tip_hub = tip_hub
         self.hub_seq = hub_seq
@@ -161,7 +161,7 @@ class Contig:
         """
         if not isinstance(other, Contig):
             raise TypeError(f"You can't sum {type(self)} object with {type(other)}")
-        if any(contig.remaining or contig.from_catch_all for contig in [self, other]):
+        if any(contig.remaining or contig.from_catch_all for contig in [self, other]): #se fossero attaccabili lo avrebbero già fatto prima
             raise RuntimeError(f"Summing instances of contigs from remaining after fork_hub or from catch all search makes no sense")
         new = Contig(
             # Sequence merging con k-1 overlap
@@ -181,7 +181,7 @@ class Contig:
             tip_hub = other.tip_hub if other.tip_hub is not None else self.tip_hub,
             hub_seq = other.hub_seq if other.hub_seq is not None else self.hub_seq
         )
-        return new
+        return new #crea un nuovo oggetto, importante ad esempio nelle bolle
 
     def copy(self):
         """
@@ -195,8 +195,8 @@ class Contig:
             seq=self.seq, 
             start_node=self.start_node, 
             final_node=self.final_node, 
-            walk_weights=list(self.walk_weights), 
-            receiving_hubs_visited=set(self.receiving_hubs_visited), 
+            walk_weights=list(self.walk_weights), #fondamentale creare un oggetto nuovo in memoria
+            receiving_hubs_visited=set(self.receiving_hubs_visited), #fondamentale creare un oggetto nuovo in memoria
             k=self.k, 
             bubble=self.bubble, 
             tip=self.tip,
@@ -218,7 +218,7 @@ class Contig:
         Makes easier interactions between the raw graph walking logic and the 
         structured Contig representation.
         """
-        seq, final_node, weights, hubs = walk_result
+        seq, final_node, weights, hubs = walk_result #_walk_linear restituisce una tupla. Creo l'oggetto contig da quei dati disordinati
         return cls(seq, initial_node, final_node, weights, hubs, k, hub = hub, hub_seq = hub_seq, remaining = remaining, from_catch_all = from_catch_all)
 
     def __len__(self):
@@ -229,7 +229,7 @@ class Contig:
     
     def is_circular(self):
         """Checks if the path is a perfect closed loop (start == end)."""
-        return self.start_node == self.final_node
+        return self.start_node == self.final_node #solo se è un cerchio perfetto
 
     def is_lariat(self):
         """
@@ -241,8 +241,8 @@ class Contig:
         attribute
         """
         if self.is_circular():
-            return False
-        if self.final_node.seq in self.receiving_hubs_visited and self.final_node.seq in self.seq[:-1]:
+            return False #se è un cerchio perfetto, non è unn laccio
+        if self.final_node.seq in self.receiving_hubs_visited and self.final_node.seq in self.seq[:-1]: #se non mettessi[:-1] sarebbe sempre True
             self.branch_kmer = self.final_node.seq
             return True
         else:
@@ -294,30 +294,30 @@ class Contig:
     def get_tag(self):
         """
         Assigns a highly granular topological classification tag to the contig.
-        
-        The method synthesizes structural flags (bubble, tip), origin context 
-        (remaining, from_catch_all), and graph junctions to generate a 
+
+        The method synthesizes structural flags (bubble, tip), origin context
+        (remaining, from_catch_all), and graph junctions to generate a
         descriptive metadata tag.
-        
+
         Key logic features:
-        - Origin: Distinguishes between generic hub starts 
+        - Origin: Distinguishes between generic hub starts
           ('_hub_starting') and specific bubble origins ('_bubble_starting').
-        - Topological Hierarchy: Prioritizes Tips (that can only be linear), 
+        - Topological Hierarchy: Prioritizes Tips (that can only be linear),
           then classifies between Circular paths, Lariats, and finally general
           Linear paths with granular sub-tagging for each.
-        - Dynamic Suffixing: if the contig ends or starts in hub (or bubble) it 
-          be flagged as so, 
-          NOTE: Circular contigs are always assumed to start from hub except if 
+        - Dynamic Suffixing: if the contig ends or starts in hub (or bubble) it
+          be flagged as so,
+          NOTE: Circular contigs are always assumed to start from hub except if
           they are flagged as circular_isolated (the normal standalone structure
           which does not have a standard entry point).
-        
+
         ALL TAGS ARE BETTER EXPLAINED IN THE PROJECT README
 
         :return: None. Updates the 'self.tag' attribute.
         """
         # ALL CIRCULAR NOT ISOLATED START FROM A HUB AND END IN HUB. RESIDUAL TUTTI START IN HUB
         if self.start_node.is_hub():
-            if self.bubble and self.start_node.seq == self.bubble_ends[0]:
+            if self.bubble and self.start_node.seq == self.bubble_ends[0]: #hub che coincide con l'inizio della bolla
                 hub_starting = "_bubble_starting"
             else:
                 hub_starting = "_hub_starting"
@@ -327,7 +327,7 @@ class Contig:
             hub_ending = "_hub_ending"
         else:
             hub_ending = ""
-        
+
         if self.tip:
             self.tag = "linear_with_tip"
             return # Se tip non servono altri controlli, solo lineare
@@ -346,7 +346,7 @@ class Contig:
                     else:
                         self.tag = "circular_with_bubble" + hub_starting
             elif self.hub:
-                self.tag = "circular_through_hub" 
+                self.tag = "circular_through_hub"
             elif not self.hub and self.final_node.is_hub():
                 self.tag = "circular_self_loop_hub" # parte e ritorna da hub
             else:
@@ -355,7 +355,7 @@ class Contig:
             if self.remaining:
                 self.tag = "lariat_fork_hub_residual" + hub_ending
             elif self.from_catch_all:
-                self.tag = "unknown_lariat_like_from_catch_all" 
+                self.tag = "unknown_lariat_like_from_catch_all"
             elif self.bubble:
                 if self.is_bubble_ending():
                     self.tag = "lariat_bubble_resolved_ending" + hub_starting
