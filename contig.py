@@ -383,7 +383,7 @@ class Contig:
                 else:
                     if self.hub:
                         self.tag = "linear_bubble_resolved_extended_through_hub" + hub_starting + hub_ending
-                    elif self.self.start_node.seq == self.bubble_ends[0] and self.final_node.seq == self.bubble_ends[1]:
+                    elif self.start_node.seq == self.bubble_ends[0] and self.final_node.seq == self.bubble_ends[1]:
                         self.tag = "linear_bubble_branch_bubble_starting"
                     else:
                         self.tag = "linear_bubble_resolved_extended" + hub_starting + hub_ending
