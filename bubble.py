@@ -11,8 +11,8 @@ class Bubble:
 
         :ivar source_node: The node where the divergence begins (the fork).
         :type source_node: Node
-        :ivar dest: The node where the paths reconverge.
-        :type dest: Node
+        :ivar dest_node: The node where the paths reconverge.
+        :type dest_node: Node
         :ivar paths: A list containing the different routes (lists of edges) inside the bubble.
         :type paths: list[list['Edge']]
         :ivar visited: Flag to track if we have processed this bubble. Defaults to False.

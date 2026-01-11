@@ -110,6 +110,7 @@ class Contig:
         self.hub = hub
         self.remaining = remaining
         self.from_catch_all = from_catch_all
+        self.main_tag = "" #riempito da get_tag
         self.tag = "" #riempito da get_tag
         self.branch_kmer = None #dove il laccio si chiude
         self.bubble_ends = bubble_ends
@@ -161,6 +162,8 @@ class Contig:
         """
         if not isinstance(other, Contig):
             raise TypeError(f"You can't sum {type(self)} object with {type(other)}")
+        if self.k != other.k:
+            raise ValueError(f"Cannot merge contigs with different k-mer sizes: {self.k} vs {other.k}")
         if any(contig.remaining or contig.from_catch_all for contig in [self, other]): #se fossero attaccabili lo avrebbero già fatto prima
             raise RuntimeError(f"Summing instances of contigs from remaining after fork_hub or from catch all search makes no sense")
         new = Contig(
@@ -256,6 +259,20 @@ class Contig:
         """
         return self.bubble and self.bubble_ends[1] == self.final_node.seq
     
+    def is_bubble_starting(self):
+        return self.bubble and self.bubble_ends[0] == self.start_node.seq
+
+    def is_tip_starting(self):
+        return self.tip and self.tip_hub == self.start_node.seq
+
+    def get_assembly_phase(self):
+        if self.remaining:
+            return "residual"
+        elif self.from_catch_all:
+            return "from_catch_all"
+        else:
+            return "standard"
+
     def get_fasta_header(self, contig_id):
         """
         Generates a standardized FASTA header string containing topological metadata.
@@ -268,14 +285,31 @@ class Contig:
         from statistics import median
         # Tutti i k-mer sono troncati a 10 bp
         median_cov = median(self.walk_weights) if self.walk_weights else 0
+
         header_parts = [
             f"contig_{contig_id}",
             f"len={len(self)}",
             f"tag={self.tag}",
-            f"cov={median_cov:.1f}"
+            f"cov={median_cov:.1f}",
+            f"assembly_phase={self.get_assembly_phase()}"
         ]
 
         # 2. Metadati topologici condizionali (solo se attinenti)
+        if self.is_tip_starting():
+            header_parts.append(f"start=tip_start")
+        elif self.is_bubble_starting():
+            header_parts.append(f"start=bubble_start")
+        elif self.start_node.is_hub():
+            header_parts.append(f"start=hub")
+
+        elif self.is_bubble_ending() and self.final_node.is_hub():
+            header_parts.append(f"end=hub_bubble_end")
+        elif self.is_bubble_ending():
+            header_parts.append(f"end=bubble_end")
+        elif self.final_node.is_hub():
+            header_parts.append(f"end=hub")
+
+
         if self.branch_kmer:
             header_parts.append(f"branch={self.branch_kmer}")
         
@@ -316,80 +350,37 @@ class Contig:
         :return: None. Updates the 'self.tag' attribute.
         """
         # ALL CIRCULAR NOT ISOLATED START FROM A HUB AND END IN HUB. RESIDUAL TUTTI START IN HUB
-        if self.start_node.is_hub():
-            if self.bubble and self.start_node.seq == self.bubble_ends[0]: #hub che coincide con l'inizio della bolla
-                hub_starting = "_bubble_starting"
-            else:
-                hub_starting = "_hub_starting"
-        else:
-            hub_starting = ""
-        if self.final_node.is_hub():
-            hub_ending = "_hub_ending"
-        else:
-            hub_ending = ""
+        
+        bubble_tag = "_with_bubble"
+        hub_tag = "_through_hub"
+        simple_tag = "_simple"
 
         if self.tip:
+            self.main_tag = "linear"
             self.tag = "linear_with_tip"
             return # Se tip non servono altri controlli, solo lineare
         if self.is_circular(): # ALL CIRCULAR NOT ISOLATED START FROM A HUB
             # QUI NON SERVE HUB STARTING CHE È SCONTATO, IMPORTANTE SOLO SE DA BUBBLE
-            if self.remaining:
-                self.tag = "circular_fork_hub_residual"
-            elif self.from_catch_all:
+            self.main_tag = "circular"
+            self.tag = self.main_tag
+            if self.from_catch_all:
                 self.tag = "circular_isolated"
-            elif self.bubble:
-                if self.is_bubble_ending():
-                    self.tag = "circular_bubble_resolved_ending" + hub_starting
-                else:
-                    if self.hub:
-                        self.tag = "circular_with_bubble_through_hub" + hub_starting
-                    else:
-                        self.tag = "circular_with_bubble" + hub_starting
-            elif self.hub:
-                self.tag = "circular_through_hub"
-            elif not self.hub and self.final_node.is_hub():
-                self.tag = "circular_self_loop_hub" # parte e ritorna da hub
             else:
-                self.tag = "unknown_circular_like"
+                self.tag = "circular_from_hub"
         elif self.is_lariat():
-            if self.remaining:
-                self.tag = "lariat_fork_hub_residual" + hub_ending
-            elif self.from_catch_all:
-                self.tag = "unknown_lariat_like_from_catch_all"
-            elif self.bubble:
-                if self.is_bubble_ending():
-                    self.tag = "lariat_bubble_resolved_ending" + hub_starting
-                else:
-                    if self.hub:
-                        self.tag = "lariat_with_bubble_through_hub" + hub_starting + hub_ending
-                    else:
-                        self.tag = "lariat_with_bubble" + hub_starting + hub_ending
-            elif self.hub:
-                self.tag = "lariat_through_hub" + hub_starting
-            elif not self.hub and self.final_node.is_hub():
-                self.tag = "lariat_branch_at_hub" + hub_starting
-            elif not self.hub:
-                self.tag = "lariat_simple" + hub_starting
-            else:
-                self.tag = "unknown_lariat_like" + hub_starting + hub_ending
+            self.main_tag = "lariat"
+            self.tag = self.main_tag
+            if self.final_node.is_hub():
+                self.tag = "lariat_hub_branching"
         else:
-            if self.remaining:
-                self.tag = "linear_fork_hub_residual" + hub_ending
-            elif self.from_catch_all:
-                self.tag = "unknown_linear_like_from_catch_all"
-            elif self.bubble:
-                if self.is_bubble_ending():
-                    self.tag = "linear_bubble_resolved_ending" + hub_starting + hub_ending
-                else:
-                    if self.hub:
-                        self.tag = "linear_bubble_resolved_extended_through_hub" + hub_starting + hub_ending
-                    elif self.start_node.seq == self.bubble_ends[0] and self.final_node.seq == self.bubble_ends[1]:
-                        self.tag = "linear_bubble_branch_bubble_starting"
-                    else:
-                        self.tag = "linear_bubble_resolved_extended" + hub_starting + hub_ending
-            elif not self.bubble and not self.tip and self.hub:
-                self.tag = "linear_through_hub" + hub_starting + hub_ending
-            elif not self.hub:
-                self.tag = "linear_simple" + hub_starting + hub_ending
-            else:
-                self.tag = "unknown_linear_like" + hub_starting + hub_ending
+            self.main_tag = "linear"
+            self.tag = self.main_tag
+
+        if self.bubble and self.hub:
+            self.tag = self.tag + bubble_tag + hub_tag
+        elif self.hub:
+            self.tag = self.tag + hub_tag
+        elif self.bubble:
+            self.tag = self.tag + bubble_tag
+        else:
+            self.tag = self.tag + simple_tag

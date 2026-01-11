@@ -135,6 +135,10 @@ class Dbg:
             reads2 = parser(file_name=self.file_nameR2, file_type=self.file_type, quality= quality_check, verbose = verbose) #generator
             put_reads_graph(reads2, quality_check, reverse_complement = self.reverse_r2, use_both_strands = use_both_strands, verbose = verbose)
         self.graph_built = True
+        if not self.nodes:
+            warnings.warn("No valid k-mers generated from reads. Check k value, read quality, or input files.")
+        elif verbose:
+            print(f"Graph built: {len(self.nodes)} nodes, {len(self.edges)} edges")
         
     def add_read(self, read: str, use_both_strands: bool):
         """
@@ -337,7 +341,7 @@ class Dbg:
                 return length #n50
 
 
-    def _rm_isolated_nodes(self, verbose: str=True):
+    def _rm_isolated_nodes(self, verbose: bool=True):
         """
             Helper method to remove nodes that have no connections.
         """
@@ -438,7 +442,12 @@ class Dbg:
             raise RuntimeError("You cannot process bubbles in a graph if it does not exist")
         if not isinstance(cov_threshold, int):
             raise TypeError("cov_threshold must be integer")
-
+        elif cov_threshold < 0:
+            raise ValueError("cov_threshold must be non-negative")
+        if not isinstance(ratio_threshold, float):
+            raise TypeError("ratio_threshold must be float")
+        elif ratio_threshold <= 0 or ratio_threshold > 1:
+            raise ValueError("ratio_threshold must be between 0 and 1")
         max_len = (self.k * 2) + 1
         iteration = 1
         removed_bubbles = 0
@@ -451,7 +460,7 @@ class Dbg:
                     if bubble._resolve(self, cov_threshold, ratio_threshold):
                         popped_count += 1
             except ValueError:
-                print("There have been problem in tips detection. You can't perform the operation")
+                print("There have been problems in bubbles detection. You can't perform the operation")
                 break
             if not found_bubbles: #sono tutte risolte
                 break
@@ -551,6 +560,8 @@ class Dbg:
             raise RuntimeError("You cannot process tips in a graph if it does not exist")
         if not isinstance(cov_threshold, int):
             raise TypeError("cov_threshold must be integer")
+        elif cov_threshold < 0:
+            raise ValueError("cov_threshold must be non-negative")
         max_len = (self.k * 2) + 1
         iteration = 1
         removed_tips = 0
@@ -662,6 +673,17 @@ class Dbg:
         self.isolated_contigs_removed = True
         return deleted_islands
 
+    def is_eulerian_linear(self):
+        number_0_in = [node for node in self.nodes.values() if len(node.incoming) == 0]
+        number_0_out = [node for node in self.nodes.values() if len(node.outgoing) == 0]
+        number_hub = [node for node in self.nodes.values() if node.is_hub()]
+        return number_0_in == number_0_out and number_0_in == 1 and number_hub == 0
+
+    def is_eulerian_circular(self):
+        number_0_in = [node for node in self.nodes.values() if len(node.incoming) == 0]
+        number_0_out = [node for node in self.nodes.values() if len(node.outgoing) == 0]
+        number_hub = [node for node in self.nodes.values() if node.is_hub()]
+        return number_0_in == number_0_out and number_0_in == 0 and number_hub == 0
 
     def _walk_linear(self, start_edge):
         """
@@ -802,8 +824,16 @@ class Dbg:
         :rtype: list[Contig]
         """
         all_starts = self._checks_and_create_starts(fork_in_hub) #lista nodi di inizio
+        if not self.nodes or not self.edges:
+            warnings.warn("Empty graph: no nodes or edges to assemble")
+            self.contigs_assembled = True
+            return []
+
         contigs = []
         contigs_forked_in_hub = False
+        if self.is_eulerian_linear() or self.is_eulerian_circular():
+            expected = "circular" if self.is_eulerian_circular() else "linear"
+            print(f"Only a single eulerian path found. Expected a single {expected} contig")
         for contig_start in all_starts:
             for start_edge in contig_start.outgoing:
                 if start_edge.visited: #strada già percorsa
@@ -839,12 +869,14 @@ class Dbg:
                             contigs.append(whole_contig)
                 if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
                     # Marco che ho trovato un contig che inizia in una bolla o un tip
-                    if contig.start_node.seq in self.bubbles: 
-                        contig.bubble = True
-                        contig.bubble_ends = (contig.start_node, self.bubbles[contig.start_node.seq].dest_node)
+                    if contig.start_node.seq in self.bubbles:
+                        if self.bubbles[contig.start_node.seq].dest_node.seq in contig.seq:
+                            contig.bubble = True
+                            contig.bubble_ends = (contig.start_node.seq, self.bubbles[contig.start_node.seq].dest_node.seq)
                     elif contig.start_node.seq in self.tips:
-                        contig.tip = True
-                        contig.tip_hub = contig.start_node
+                        if self.tips[contig.start_node.seq].final_node.seq in contig.seq:
+                            contig.tip = True
+                            contig.tip_hub = contig.start_node.seq
                     contig.get_tag()
                     contigs.append(contig)
 
@@ -860,11 +892,13 @@ class Dbg:
                             continue
                         remaining_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start, remaining = True) #creo contig
                         if remaining_contig.start_node.seq in self.bubbles:
-                            remaining_contig.bubble = True
-                            remaining_contig.bubble_ends = (remaining_contig.start_node, self.bubbles[remaining_contig.start_node.seq].dest_node)
+                            if self.bubbles[remaining_contig.start_node.seq].dest_node.seq in remaining_contig.seq:
+                                remaining_contig.bubble = True
+                                remaining_contig.bubble_ends = (remaining_contig.start_node.seq, self.bubbles[remaining_contig.start_node.seq].dest_node.seq)
                         elif remaining_contig.start_node.seq in self.tips:
-                            remaining_contig.tip = True
-                            remaining_contig.tip_hub = remaining_contig.start_node
+                            if self.tips[remaining_contig.start_node.seq].final_node.seq in remaining_contig.seq:
+                                remaining_contig.tip = True
+                                remaining_contig.tip_hub = remaining_contig.start_node.seq
                         remaining_contig.get_tag()
                         contigs.append(remaining_contig)
                     if all(edge.visited for edge in contig_start.outgoing): #controllo che abbiamo visitato tutte le uscite dall'hub
