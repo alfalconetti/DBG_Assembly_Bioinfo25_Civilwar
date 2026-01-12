@@ -8,9 +8,9 @@ This implementation can explicitly identify and handle graph complexities such a
 ---
 ## Key Features
 
-- **Explicit Stats calculation** At any moment you can ask for the current graph stats, that give you insight on the actual number of *edges*, *nodes* (of which *hubs* and *receiving hubs*), *average coverage* and number of *bubbles and tips* kept after processing
+- **Explicit Stats calculation** At any moment you can ask for the current graph stats, that give you insight on the actual number of *edges*, *nodes* (including *hubs* and *receiving hubs*), *average coverage* and number of *bubbles and tips* kept after processing
 - **Eulerian Path Detection** Explicitly detects the presence of a single *eulerian path* (circular or linear), fundamental to understand if the cleaning graph procedure managed to fully simplify the graph (if possible)
-- **Structural Variant Resolution:** Automated handling of *bubbles* (allelic variants/sequencing artifacts) and *tips* (sequencing artifacts) during path extension. Bubbles and tips can be removed or kept if considered biological truths, through user-defined thresholds
+- **Structural Variant Resolution:** Automated handling of *bubbles* (allelic variants/sequencing artifacts) and *tips* (sequencing artifacts) during path extension. Bubbles and tips can be removed or kept if considered biological variants, through user-defined thresholds
 - **fork_in_hub option** When enabled, this parameter allows to explore one level of depth of the graph, allowing to resolve bubble structures or to walk through hubs keeping the 5' part of the contig as common between different complex contigs. This, however, poses the risk of creating chimeric assemblies and can overestimate the n50 calculation
 - **Advanced Topological Tagging:** Every contig is classified based on its connectivity and shape within the graph (e.g., *Linear, Circular, Lariat*), the assembly phase where it was generated and where it started/ended
 - **Metadata-Rich FASTA Output:** Generates FASTA headers containing median k-mer coverage, length, topological tags and necessary structural information to better understand the origin of the topological complications that interrupted the assembly.
@@ -21,13 +21,13 @@ This implementation can explicitly identify and handle graph complexities such a
 
 ### Graph Components
 - Node: A (k-1)-mer sequence. Nodes are connected by edges.
-- Edge: A k-mer with a weight (coverage) indicating how many times it appears in the reads. It connects two nodes starting from the node containing its -1 prefix and arriving to the node containing its -1 suffix
+- Edge: A k-mer with a weight (coverage) indicating how many times it appears in the reads. It connects two nodes starting from the node containing its -1 prefix and arriving at the node containing its -1 suffix
 - Hub: A node with multiple outgoing paths (branching point).
 - Receiving Hub: A node where multiple paths converge.
 
 ### Graph Particular Structures
 - Bubble: Divergence + reconvergence pattern. Represents variants or sequencing errors.
-- Tip: Short dead-end branch, usually from sequencing errors at read ends. We distinguish type I (outgoing) tips as tips that start from an hub and result in a dead end and type II (incoming) for those tips that start from a node with no incoming edges and shortly after converge in a main structure.
+- Tip: Short dead-end branch, usually from sequencing errors at read ends. We distinguish type I (outgoing) tips as tips that start from a hub and result in a dead end and type II (incoming) for those tips that start from a node with no incoming edges and shortly after converge in a main structure.
 - Island: Isolated graph component, disconnected from the main structure.
 
 
@@ -54,7 +54,7 @@ The assembler is designed for both automated execution and manual graph manipula
 ### 1. Automated Pipeline (Quick Start)
 The run_assembly_pipeline function is the fastest way to assemble your data. It handles everything from FASTQ parsing to N50 calculation. Example usage is below.
 
-``` python
+```python
 from pipeline_function import run_assembly_pipeline
 
 dbg, lengths, n50 = run_assembly_pipeline(
@@ -126,7 +126,7 @@ Basic Workflow:
 
 **`reverse_r2`**
 - **True**: Considers the reads of the R2 file as already reverse complemented by the assembler. Makes sense if you have data you want to use as stranded and you know this information.
-- **False** (default): consideres the R2 file reads as on the opposite strand of the R1 file. Is perfectly ok if you want to use both strands however. See below.
+- **False** (default): considers the R2 file reads as on the opposite strand of the R1 file. Is perfectly ok if you want to use both strands however. See below.
 
 **`use_both_strands`**
 - **True** (default): Considers both DNA strands. Recommended unless you know reads are strand specific and you need this feature.
@@ -148,7 +148,7 @@ Basic Workflow:
 - **Lower values**: Keep more potential biology, more noise.
 
 **`process_bubbles(cov_threshold, ratio_threshold)`**
-- Resolves divergence-convercov_thresholdubbles).
+- Resolves divergence-convergence patterns (bubbles).
 - **cov_threshold**: Minimum coverage to keep a bubble path.
   - 5: Keep paths with ≥5X (likely real variants). Default value.
   - Higher: Only high-confidence variants.
@@ -165,7 +165,7 @@ Basic Workflow:
 
 **`fork_in_hub`**
 - **False** (default): Conservative. Stops at hubs, each path becomes separate contig.
-  - **Use when**: You want accurate assemblies that cannot risk to have chimeric contigs.
+  - **Use when**: You want accurate assemblies that cannot risk having chimeric contigs.
   - **Best for**: Circular genome detection.
   
 - **True**: Explores one level beyond hubs. Resolves all bubble paths and different hub paths resulting in contigs that share a common head 5' portion.
@@ -241,10 +241,10 @@ Each sequence is saved with a header containing metadata separated by pipes (`|`
 The `cov` value uses the **median** weight. This is better than the average because it isn't ruined by small repetitive peaks.
 
 #### Assembly Phase
-The phase of the assembly process in which the contig generated:
+The phase of the assembly process in which the contig was generated:
 * **`standard`**: The initial contig assembly phase, starting only from nodes with no incoming edges, if `fork_in_hub` is set to True, otherwise also all hubs are considered as initial starts.
 * **`residual`**: Possible only when `fork_in_hub` is True. It is assigned to all contigs starting from hubs where the initial standard search stopped because limited to one level of depth
-* **`from_catch_all`**: assigned to all contigs generated in the final phase of assembly to detect contigs starting from neither nodes with no incoming edges nor hubs. Should be assigned only to contigs tagged as `circular_isolated`
+* **`from_catch_all`**: assigned to all contigs generated in the final phase of assembly to detect contigs starting neither from nodes with no incoming edges nor from hubs. Should be assigned only to contigs tagged as `circular_isolated`
 
 
 #### Extra Metadata (Conditional)
