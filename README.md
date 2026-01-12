@@ -47,6 +47,24 @@ This implementation can explicitly identify and handle graph complexities such a
 
 ---
 
+## 🚀 Installation
+
+### Requirements
+- Python 3.8 or higher
+- No external dependencies (uses only Python standard library)
+
+### Setup
+```bash
+git clone git@github.com:alfalconetti/DBG_Assembly_Bioinfo25_Civilwar.git
+
+cd DBG_Assembly_Bioinfo25_Civilwar
+
+```
+
+All modules must be in the same folder for the project to work.
+
+---
+
 ## USAGE
 
 The assembler is designed for both automated execution and manual graph manipulation. You can run the entire pipeline at once or control each step through the Dbg class.
@@ -169,11 +187,15 @@ Basic Workflow:
 - **False** (default): Conservative. Stops at hubs, each path becomes separate contig.
   - **Use when**: You want accurate assemblies that cannot risk having chimeric contigs.
   - **Best for**: Circular genome detection.
+  - **Result**: More contigs covering independent assembly regions
   
-- **True**: Explores one level beyond hubs. Resolves all bubble paths and different hub paths resulting in contigs that share a common head 5' portion.
+- **True**: Explores one level of depth beyond hubs. When it encounters an hub, it saves the contig up to that point. Then, it resolves all bubble paths and different hub paths and sums them to the saved contig, resulting in contigs that share a common head 5' prefix. 
   - **Use when**: Complex region with variants you want to investigate.
   - **Warning**: Can create chimeric assemblies. N50 can be overestimated.
   - **Best for**: Maximizing contig length, resolving structural variants
+
+
+> Technical detail: "One level" means the assembler explores only the immediate children of the hub, not their children. This prevents exponential path explosion while still resolving local complexity. The most complicated scenario it handles (very rare) is the presence of an hub in the final node of a bubble that creates a number of contigs equal to the product of the bubble paths and the subsequent hub paths.
 
 **`write_contigs(min_len)`**
  
