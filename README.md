@@ -8,24 +8,44 @@ This implementation can explicitly identify and handle graph complexities such a
 
 - **Explicit Stats calculation** At any moment you can ask for the current graph stats, that give you insight on the actual number of *edges*, *nodes* (of which *hubs* and *receiving hubs*), *average coverage* and number of *bubbles and tips* kept after processing
 - **Eulerian Path Detection** Explicitly detects the presence of a single *eulerian path* (circular or linear), fundamental to understand if the cleaning graph procedure managed to fully simplify the graph (if possible)
-- **Structural Variant Resolution:** Automated handling of *bubbles* (allelic variants/sequencing artifacts) and *tips* (sequencing artifacts) during path extension. Bubbbles and tips can be removed or kept if considered biological thruths, through user-defined thresholds
-- **fork_in_hub option** When enabled, this parameter allows to explore one level of depthness of the graph, allowing to resolve bubble structures or to walk through hubs keeping the 5' part of the contig as common between different complex contigs. This, however, poses the risk of creating chimeric assemblies and can overstimate the n50 calculation
-- **Advanced Topological Tagging:** Every contig is classified based on its connectivity and shape within the graph (e.g., *Linear, Circular, Lariat*), the assembly phase where it generated and where it started/ends
+- **Structural Variant Resolution:** Automated handling of *bubbles* (allelic variants/sequencing artifacts) and *tips* (sequencing artifacts) during path extension. Bubbles and tips can be removed or kept if considered biological truths, through user-defined thresholds
+- **fork_in_hub option** When enabled, this parameter allows to explore one level of depth of the graph, allowing to resolve bubble structures or to walk through hubs keeping the 5' part of the contig as common between different complex contigs. This, however, poses the risk of creating chimeric assemblies and can overestimate the n50 calculation
+- **Advanced Topological Tagging:** Every contig is classified based on its connectivity and shape within the graph (e.g., *Linear, Circular, Lariat*), the assembly phase where it was generated and where it started/ended
 - **Metadata-Rich FASTA Output:** Generates FASTA headers containing median k-mer coverage, length, topological tags and necessary structural information to better understand the origin of the topological complications that interrupted the assembly.
 
 ## USAGE
 
-This assembler can be used in two ways: as a python package and using a pre-defined highly customizable pipeline function.
-To start, you can simply clone this repository.
+The assembler is designed for both automated execution and manual graph manipulation. You can run the entire pipeline at once or control each step through the Dbg class.
 
+### 1. Automated Pipeline (Quick Start)
+The run_assembly_pipeline function is the fastest way to assemble your data. It handles everything from FASTQ parsing to N50 calculation. Example usage is below.
 
+``` python
+from pipeline_function import run_assembly_pipeline
+
+dbg, lengths, n50 = run_assembly_pipeline(
+    k=31,
+    file_name="reads_R1.fq",
+    file_type="fastq",
+    paired=True,
+    file_nameR2="reads_R2.fq",
+    quality_check=True,
+    prune_threshold=3,          # Removes low-frequency k-mers (noise)
+    tip_cov_threshold=4,        # Coverage threshold for tip removal
+    bubble_cov_threshold=4,     # Coverage threshold for bubble resolution
+    fork_in_hub=True,           # Enables deeper path exploration
+    output_fasta="assembly_output.fasta"
+) 
+```
+
+You can find full documentation for this function in its file.
 
 
 # Contig  Tagging
 
 Assembled contigs are classified according to their origin and topology. Every sequence is tagged based on its **shape** in the graph and the particular structures (like bubbles or tips) it contains.
 
-## 1. Primary Topologies
+## 1. Primary Topologies (main_tag)
 First, the contig is put into one of three main families (`main_tag=` in the FASTA header) based on its start and end points.
 
 | Family | Logic | Description |
@@ -81,9 +101,9 @@ The `cov` value uses the **median** weight. This is better than the average beca
 
 ### Assembly Phase
 The phase of the assembly process in which the contig generated:
-* **`standard`**: The initial contig assembly phase, starting only from nodes with no incoming edges if `fork_in_hub` is set to True, otherwise also all hubs are considered as initial starts.
-* **`residual`**: Possible only when `fork_in_hub` is True. It is assigned to all contigs starting from hubs where the initial standard search stopped because limited to one level of depthness
-* **`from_catch_all`**: assigned to all contigs generated in the final phase of assembly to detect contigs not starting neither from nodes with no incoming edges nor hubs. Should be assigned only to `circular_isolated` tagged
+* **`standard`**: The initial contig assembly phase, starting only from nodes with no incoming edges, if `fork_in_hub` is set to True, otherwise also all hubs are considered as initial starts.
+* **`residual`**: Possible only when `fork_in_hub` is True. It is assigned to all contigs starting from hubs where the initial standard search stopped because limited to one level of depth
+* **`from_catch_all`**: assigned to all contigs generated in the final phase of assembly to detect contigs starting from neither nodes with no incoming edges nor hubs. Should be assigned only to contigs tagged as `circular_isolated`
 
 
 ### Extra Metadata (Conditional)
@@ -110,4 +130,4 @@ Therefore, if you know that you are specifically searching for circular contigs 
 
 ## 4. Quick Technical Notes
 
-**Adding Contigs**: You can use the `+` operator to merge two contigs. The new contig will combine all flags (like `bubble` or `tip`) and update the list of visited junctions. However, you can not add contigs originated from different assembly phases.
+**Adding Contigs**: You can use the `+` operator to merge two contigs. The new contig will combine all flags (like `bubble` or `tip`) and update the list of visited junctions. However, you cannot add contigs originated from different assembly phases.
