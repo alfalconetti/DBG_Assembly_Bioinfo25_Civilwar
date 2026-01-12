@@ -289,6 +289,7 @@ class Contig:
         header_parts = [
             f"contig_{contig_id}",
             f"len={len(self)}",
+            f"main_tag={self.main_tag}",
             f"tag={self.tag}",
             f"cov={median_cov:.1f}",
             f"assembly_phase={self.get_assembly_phase()}"
@@ -320,31 +321,14 @@ class Contig:
             header_parts.append(f"tip_from={self.tip_hub[:10]}..")
             
         if self.hub_seq:
-            header_parts.append(f"hub_origin={self.hub_seq[:10]}..")
+            header_parts.append(f"hub_seq={self.hub_seq[:10]}..")
 
         # Uniamo tutto con il pipe
         return ">" + "|".join(header_parts)
 
     def get_tag(self):
         """
-        Assigns a highly granular topological classification tag to the contig.
-
-        The method synthesizes structural flags (bubble, tip), origin context
-        (remaining, from_catch_all), and graph junctions to generate a
-        descriptive metadata tag.
-
-        Key logic features:
-        - Origin: Distinguishes between generic hub starts
-          ('_hub_starting') and specific bubble origins ('_bubble_starting').
-        - Topological Hierarchy: Prioritizes Tips (that can only be linear),
-          then classifies between Circular paths, Lariats, and finally general
-          Linear paths with granular sub-tagging for each.
-        - Dynamic Suffixing: if the contig ends or starts in hub (or bubble) it
-          be flagged as so,
-          NOTE: Circular contigs are always assumed to start from hub except if
-          they are flagged as circular_isolated (the normal standalone structure
-          which does not have a standard entry point).
-
+        
         ALL TAGS ARE BETTER EXPLAINED IN THE PROJECT README
 
         :return: None. Updates the 'self.tag' attribute.
@@ -363,7 +347,7 @@ class Contig:
             # QUI NON SERVE HUB STARTING CHE È SCONTATO, IMPORTANTE SOLO SE DA BUBBLE
             self.main_tag = "circular"
             self.tag = self.main_tag
-            if self.from_catch_all:
+            if not self.start_node.is_hub and not len(self.start_node.incoming) == 1:
                 self.tag = "circular_isolated"
             else:
                 self.tag = "circular_from_hub"
