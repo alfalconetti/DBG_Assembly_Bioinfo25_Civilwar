@@ -134,7 +134,7 @@ Basic Workflow:
 
 **`k` (k-mer size)**
 - **Lower k (15-25)**: More connections, better for low coverage or diverse data. Risk: more branches
-- Higher k (31-55)**: Fewer spurious connections, better for high coverage. Risk: fragmentation
+- **Higher k (31-55)**: Fewer spurious connections, better for high coverage. Risk: fragmentation
 > Advice: Use odd k, start with 31.
 
 **`quality_threshold` (Phred score)**
@@ -296,3 +296,12 @@ Therefore, if you know that you are specifically searching for circular contigs 
 ### 4. Quick Technical Notes
 
 **Adding Contigs**: You can use the `+` operator to merge two contigs. The new contig will combine all flags (like `bubble` or `tip`) and update the list of visited junctions. However, you cannot add contigs originated from different assembly phases.
+
+## 👥 Credits
+
+This project was developed as part of the Programmazione per la Bioinformatica course (2025/26) in Univeristy of Bari.
+
+* *Developers*
+  * De Lorenzis Stefano - [stedelorenzis]
+  * Falconetti Andrea Luca - [alfalconetti]
+
