@@ -3,14 +3,14 @@
 
 This tool implements a genome assembler based on the De Bruijn Graph formalism. It accepts k-mer inputs to construct the graph structure and performs a topology-aware assembly process.
 
-This implementation can explicitly identify and handle graph complexities such as sequencing artifacts (tips or bubbles), allelic variants (bubbles), and isolated components. The assembly engine traces paths through the graph and assigns a specific topological class to each generated contig. This provides granular insights into the graph structure directly in the output metadata, enabling downstream analysis using comprehensive parsing-ready FASTA headers.
+This implementation can explicitly identify and handle graph complexities such as sequencing artifacts (tips or bubbles), biological variants (bubbles), and isolated components. The assembly engine traces paths through the graph and assigns a specific topological class to each generated contig. This provides granular insights into the graph structure directly in the output metadata, enabling downstream analysis using comprehensive parsing-ready FASTA headers.
 
 ---
 ## Key Features
 
 - **Explicit Stats calculation** At any moment you can ask for the current graph stats, that give you insight on the actual number of *edges*, *nodes* (including *hubs* and *receiving hubs*), *average coverage* and number of *bubbles and tips* kept after processing
 - **Eulerian Path Detection** Explicitly detects the presence of a single *eulerian path* (circular or linear), fundamental to understand if the cleaning graph procedure managed to fully simplify the graph (if possible)
-- **Structural Variant Resolution:** Automated handling of *bubbles* (allelic variants/sequencing artifacts) and *tips* (sequencing artifacts) during path extension. Bubbles and tips can be removed or kept if considered biological variants, through user-defined thresholds
+- **Structural Variant Resolution:** Automated handling of *bubbles* (biological variants/sequencing artifacts) and *tips* (sequencing artifacts) during path extension. Bubbles and tips can be removed or kept if considered biological variants, through user-defined thresholds
 - **fork_in_hub option** When enabled, this parameter allows to explore one level of depth of the graph, allowing to resolve bubble structures or to walk through hubs keeping the 5' part of the contig as common between different complex contigs. This, however, poses the risk of creating chimeric assemblies and can overestimate the n50 calculation
 - **Advanced Topological Tagging:** Every contig is classified based on its connectivity and shape within the graph (e.g., *Linear, Circular, Lariat*), the assembly phase where it was generated and where it started/ended
 - **Metadata-Rich FASTA Output:** Generates FASTA headers containing median k-mer coverage, length, topological tags and necessary structural information to better understand the origin of the topological complications that interrupted the assembly.
@@ -20,30 +20,30 @@ This implementation can explicitly identify and handle graph complexities such a
 ## 📚 Key Terms
 
 ### Graph Components
-- Node: A (k-1)-mer sequence. Nodes are connected by edges.
-- Edge: A k-mer with a weight (coverage) indicating how many times it appears in the reads. It connects two nodes starting from the node containing its -1 prefix and arriving at the node containing its -1 suffix
-- Hub: A node with multiple outgoing paths (branching point).
-- Receiving Hub: A node where multiple paths converge.
+- **Node**: A (k-1)-mer sequence. Nodes are connected by edges.
+- **Edge**: A k-mer with a weight (coverage) indicating how many times it appears in the reads. It connects two nodes: the source node (containing its first k-1 bases, or prefix) and the destination node (containing its last k-1 base, or suffix)
+- **Hub**: A node with multiple outgoing paths (branching point).
+- **Receiving Hub**: A node where multiple paths converge.
 
 ### Graph Particular Structures
-- Bubble: Divergence + reconvergence pattern. Represents variants or sequencing errors.
-- Tip: Short dead-end branch, usually from sequencing errors at read ends. We distinguish type I (outgoing) tips as tips that start from a hub and result in a dead end and type II (incoming) for those tips that start from a node with no incoming edges and shortly after converge in a main structure.
-- Island: Isolated graph component, disconnected from the main structure.
+- **Bubble**: Divergence + reconvergence pattern. Represents variants or sequencing errors.
+- **Tip**: Short dead-end branch, usually from sequencing errors at read ends. We distinguish type I (outgoing) tips as tips that start from a hub and result in a dead end and type II (incoming) for those tips that start from a node with no incoming edges and shortly after converge in a main structure.
+- **Island**: Isolated graph component, disconnected from the main structure.
 
 
-> **Note**: All those structures are detected only when their length is **shorter than 2k-1 bases**. If longer, it would be hard to consider them as errors and more probable to consider them as biological variants. When detected, they can be removed or kept in the graph via user defined thresholds.
+> **Note**: All those structures are detected only when their length is **shorter than 2k+1 bases**. If longer, it would be hard to consider them as errors and more probable to consider them as biological variants. When detected, they can be removed or kept in the graph via user defined thresholds.
 
 
 
 ### Contig Shapes
-- Linear: Standard path with distinct start/end.
-- Circular: Closed loop (start = end). Often plasmids.
-- Lariat: "Lasso" shape - linear tail into a cycle.
+- **Linear**: Standard path with distinct start/end.
+- **Circular**: Closed loop (start = end). Often plasmids.
+- **Lariat**: "Lasso" shape - linear tail into a cycle.
 
 ### Assembly Terms
-- Coverage: Number of reads supporting a k-mer. Higher = more confident.
-- Eulerian Path: Path visiting every edge exactly once. Perfect assemblability.
-- N50: Assembly quality metric. Length where 50% of bases are in contigs ≥ that length.
+- **Coverage**: Number of reads supporting a k-mer. Higher = more confident.
+- **Eulerian Path**: Path visiting every edge exactly once. Perfect assemblability.
+- **N50**: Assembly quality metric. Length where 50% of bases are in contigs ≥ that length.
 
 ---
 
@@ -116,7 +116,7 @@ Basic Workflow:
 
 **`k` (k-mer size)**
 - **Lower k (15-25)**: More connections, better for low coverage or diverse data. Risk: more branches
-- Higher k (31-55)5)**: Fewer spurious connections, better for high coverage. Risk: fragmentation
+- Higher k (31-55)**: Fewer spurious connections, better for high coverage. Risk: fragmentation
 > Advice: Use odd k, start with 31.
 
 **`quality_threshold` (Phred score)**
@@ -131,6 +131,8 @@ Basic Workflow:
 **`use_both_strands`**
 - **True** (default): Considers both DNA strands. Recommended unless you know reads are strand specific and you need this feature.
 - **False**: Only forward strand. Rare use case.
+
+> **Note**: If `use_both_strands=True` it overrides `reverse_r2` because both strands are used anyway.
 
 
 ### Graph Cleaning
