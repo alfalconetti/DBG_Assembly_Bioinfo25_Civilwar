@@ -31,7 +31,7 @@ This implementation can explicitly identify and handle graph complexities such a
 - Island: Isolated graph component, disconnected from the main structure.
 
 
-> **Note**: All those structures are detected only when their length is **shorter than 2k-1 bases**. If longer, it would be hard to consider them as errors and more probable to consider them as biologic variants. When detected, they can be removed or kept in the graph via user defined thresholds.
+> **Note**: All those structures are detected only when their length is **shorter than 2k-1 bases**. If longer, it would be hard to consider them as errors and more probable to consider them as biological variants. When detected, they can be removed or kept in the graph via user defined thresholds.
 
 
 
@@ -115,12 +115,12 @@ Basic Workflow:
 ### Graph Building
 
 **`k` (k-mer size)**
-- **Lower k (15-25)5)**: More connections, better for low coverage or diverse data. Risk: more branches
+- **Lower k (15-25)**: More connections, better for low coverage or diverse data. Risk: more branches
 - Higher k (31-55)5)**: Fewer spurious connections, better for high coverage. Risk: fragmentation
 > Advice: Use odd k, start with 31.
 
 **`quality_threshold` (Phred score)**
-- **Higher (30+)**: Only high-quality reads. More accurate but less 
+- **Higher (30+)**: Only high-quality reads. More accurate but less information
 - **Lower (20-25)**: More data but more noise. Use with higher pruning.
 > **NOTE**: This assembler **is not** a trimmer. The quality check logic is very brutal by discarding whole reads if their median is not above the threshold. Best advice is using this assembler on already trimmed data with more reasonable logic, or using 30 or less as threshold.
 
