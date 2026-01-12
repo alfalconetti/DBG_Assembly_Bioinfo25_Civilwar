@@ -221,8 +221,6 @@ First, the contig is put into one of three main families (`main_tag=` in the FAS
 
 
 
----
-
 ### 2. How Tags are Assigned (`get_tag`)
 
 The `get_tag()` method builds the final name using a strict order of importance:
@@ -252,7 +250,6 @@ Unless it is a tip, we add extra info to the base tag to describe the walk that 
 
 > **Note**: `_with_bubble` and `_through_hub` are compatible for bubble resolutions that result in a hub as the final bubble node.
 
----
 
 ### 3. FASTA Header Format
 
@@ -291,11 +288,32 @@ Finally, `circular_isolated` contigs should always be`_simple`. If they had a bu
 Therefore, if you know that you are specifically searching for circular contigs you are advised to use `fork_in_hub=False` allowing the detection of circular starting from primary and not nested hubs.
 
 
----
-
 ### 4. Quick Technical Notes
 
 **Adding Contigs**: You can use the `+` operator to merge two contigs. The new contig will combine all flags (like `bubble` or `tip`) and update the list of visited junctions. However, you cannot add contigs originated from different assembly phases.
+
+---
+
+##  Areas for Improvement
+
+While this assembler provides a robust framework for De Bruijn Graph construction and topological analysis, several enhancements could improve its performance and scalability:
+
+### 1. Parallelization in Graph Construction
+Currently, the graph is built sequentially. Implementing a multi-threaded approach for k-mer counting and edge addition would significantly reduce the execution time, especially for large multi-gigabyte FASTQ files. This has not been done yet because the Python GIL locks from accessing the same memory area (the nodes and edges dictionaries) and would need complex approaches such as the map and reduce.
+
+### 2. Scaffolding with Paired-End Reads
+The current engine focuses on contig assembly through graph linear walk that stops in hubs or at nodes with no outgoing edges. Integrating paired-end information during or after the assembly process would allow the join different contigs, resolving repeats and creating longer, more continuous **scaffolds**.
+
+### 3. Graph Compaction with Supernodes
+To optimize memory usage and simplify traversal, the graph could be compacted into a **Compressed De Bruijn Graph**. By merging non-branching paths (chains of nodes with in-degree and out-degree of 1, that is almost equivalent to our non-forked contigs) into single **supernodes**, the number of elements to manage would drastically decrease without losing genomic information. This is totally useless for simple genomes but is of uttermost importance if this tool were to be used in more complex genomes, in order to reduce the impact on memory of the tool.
+
+
+
+### 4. Command Line Interface (CLI)
+Developing a dedicated CLI (e.g. using `argparse`) would make the tool more accessible and easier to integrate into automated bioinformatics pipelines, allowing users to specify parameters, input files, and output paths directly from the terminal, offering another highly customizable usage option.
+
+
+---
 
 ## 👥 Credits
 
