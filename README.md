@@ -1,9 +1,8 @@
-# README WORK IN PROGRESS
 # De Bruijn Graph Assembler & Contig Classifier
 
-This tool implements a genome assembler based on the De Bruijn Graph formalism. It accepts k-mer inputs to construct the graph structure and performs a topology-aware assembly process.
+This tool implements a genome assembler based on the De Bruijn Graph strategy. It accepts k-mer inputs (calculated from FASTQ or FASTA parsed files) to construct the graph structure and performs a topology-aware assembly process.
 
-This implementation can explicitly identify and handle graph complexities such as sequencing artifacts (tips or bubbles), biological variants (bubbles), and isolated components. The assembly engine traces paths through the graph and assigns a specific topological class to each generated contig.
+This implementation can explicitly identify and handle graph complexities such as sequencing artifacts (tips or bubbles), biological variants (bubbles), and isolated components. The assembly engine traces paths through the graph and assigns a specific topological tag to each generated contig.
 
 This provides granular insights into the graph structure directly in the output metadata, enabling downstream analysis using comprehensive parsing-ready FASTA headers.
 
@@ -62,7 +61,7 @@ This provides granular insights into the graph structure directly in the output 
 
 ### Contig Shapes
 - **Linear**: Standard path with distinct start/end.
-- **Circular**: Closed loop (start = end). Often plasmids.
+- **Circular**: Closed loop (start = end). 
 - **Lariat**: "Lasso" shape - linear tail into a cycle.
 
 ### Assembly Terms
@@ -103,7 +102,7 @@ To generate and view the documentation:
 
 ​Open `docs/_build/html/index.html` in your browser.
 
-​This will provide a searchable interface for all classes and their methods.
+​This will provide a searchable and interconnected interface for all classes and their methods.
 
 ---
 
@@ -134,6 +133,8 @@ dbg, lengths, n50 = run_assembly_pipeline(
 
 You can find full documentation for this function as described above
 
+A Command line interface for this function could be developed to ease its use in bash workflows.
+
 
 ### 2. Manual Control (Step-by-Step)
 
@@ -159,7 +160,7 @@ Basic Workflow:
 
 **Key Differences from Automated Pipeline**:
 - You can inspect graph statistics between steps to guide parameter choices
-- You can skip or repeat cleaning steps (e.g., run process_bubbles() twice with different thresholds)
+- You can skip or repeat cleaning steps (e.g., run `process_bubbles()` twice with different thresholds)
 - You can access intermediate results for debugging or analysis (e.g. create your custom stats)
 - You can customize the order of operations
 - You can perform different assemblies before and after some cleaning steps, or both using and not using `fork_in_hub` option.
@@ -184,11 +185,11 @@ Basic Workflow:
 **`quality_threshold` (Phred score)**
 - **Higher (30+)**: Only high-quality reads. More accurate but less information
 - **Lower (20-25)**: More data but more noise. Use with higher pruning.
-> **NOTE**: This assembler **is not** a trimmer. The quality check logic is very brutal by discarding whole reads if their median is not above the threshold. Best advice is using this assembler on already trimmed data with more reasonable logic, or using 30 or less as threshold.
+> **NOTE**: This assembler **is not** a trimmer. The quality check logic is very brutal by discarding whole reads if their median is not above the threshold. Best advice is using this assembler on already trimmed data with more reasonable trimming logic, or using 30 or less as threshold.
 
 **`reverse_r2`**
-- **True**: Considers the reads of the R2 file as already reverse complemented by the assembler. Makes sense if you have data you want to use as stranded and you know this information.
-- **False** (default): considers the R2 file reads as on the opposite strand of the R1 file. Is perfectly ok if you want to use both strands however. See below.
+- **True**: Considers the reads of the R2 file as already reverse complemented during the sequencing. Makes sense if you have data you want to use as stranded and you know this information.
+- **False** (default): considers the R2 file reads as on the opposite strand of the R1 file. Default is perfectly ok if you want to use both strands however. See below.
 
 **`use_both_strands`**
 - **True** (default): Considers both DNA strands. Recommended unless you know reads are strand specific and you need this feature.
@@ -225,7 +226,7 @@ Basic Workflow:
 
 **`process_short_islands()`**
 - Removes isolated components shorter than 2k+1.
-- No parameters - automatically removes likely contamination
+- No parameters - automatically removes likely errors
 
 **`fork_in_hub`**
 - **False** (default): Conservative. Stops at hubs, each path becomes separate contig.
@@ -239,7 +240,8 @@ Basic Workflow:
   - **Best for**: Maximizing contig length, resolving structural variants
 
 
-> Technical detail: "One level" means the assembler explores only the immediate children of the hub, not their children. This prevents exponential path explosion while still resolving local complexity. The most complicated scenario it handles (very rare) is the presence of an hub in the final node of a bubble that creates a number of contigs equal to the product of the bubble paths and the subsequent hub paths.
+> Technical detail: "One level" means the assembler explores only the immediate children paths of the hub, not their children. This prevents exponential path explosion while still resolving local complexity. 
+The most complicated scenario it handles (very rare) is the presence of an hub in the final node of a bubble that creates a number of contigs equal to the product of the bubble paths and the subsequent hub paths.
 
 **`write_contigs(min_len)`**
  
@@ -308,7 +310,7 @@ The `cov` value uses the **median** weight. This is better than the average beca
 #### Assembly Phase
 The phase of the assembly process in which the contig was generated:
 * **`standard`**: The initial contig assembly phase, starting only from nodes with no incoming edges, if `fork_in_hub` is set to True, otherwise also all hubs are considered as initial starts.
-* **`residual`**: Possible only when `fork_in_hub` is True. It is assigned to all contigs starting from hubs where the initial standard search stopped because limited to one level of depth
+* **`residual`**: Possible only when `fork_in_hub` is True. It is assigned to all contigs starting from hubs where the initial standard search stopped because limited to one level of depth (secondary hubs)
 * **`from_catch_all`**: assigned to all contigs generated in the final phase of assembly to detect contigs starting neither from nodes with no incoming edges nor from hubs. Should be assigned only to contigs tagged as `circular_isolated`
 
 
@@ -323,18 +325,18 @@ Additional info appears only if it fits the structure:
 
 **Important note on circular contigs**:
 
-Some tagging combinations should not be possible and represent an immediate warning when found: **circular contigs can never be `_through_hub`** because they either start from hub (in the residual assembly phase or when `fork_in_hub` is False, and in both conditions the assembly stops at hubs) or are caught in the catch all final phase when no hubs are present. 
+Some tagging combinations should not be possible and represent an immediate warning when found: **circular contigs can never be `_through_hub`** because they either start from hub (in the residual assembly phase or when `fork_in_hub` is False, and in both conditions the assembly stops as soon as it finds hubs) or are caught in the catch all final phase when no hubs are present. 
 
 They can however be `_with_bubble` when the hub they start from is directly a bubble start node.
 
 Finally, `circular_isolated` contigs should always be`_simple`. If they had a bubble, they would have a junction and would have been found earlier in the process.
 
-Therefore, if you know that you are specifically searching for circular contigs you are advised to use `fork_in_hub=False` allowing the detection of circular starting from primary and not nested hubs.
+> **ADVICE**: if you know that you are specifically searching for circular contigs you are advised to use `fork_in_hub=False` allowing the detection of circular starting from primary and not nested hubs.
 
 
 ### 4. Quick Technical Notes
 
-**Adding Contigs**: You can use the `+` operator to merge two contigs. The new contig will combine all flags (like `bubble` or `tip`) and update the list of visited junctions. However, you cannot add contigs originated from different assembly phases.
+**Adding Contigs**: You can use the `+` operator to merge two contigs. The new contig will combine all flags (like `bubble` or `tip`) and update the list of visited junctions. However, you cannot add contigs originated from different assembly phases. 
 
 ---
 
@@ -349,7 +351,7 @@ Currently, the graph is built sequentially. Implementing a multi-threaded approa
 The current engine focuses on contig assembly through graph linear walk that stops in hubs or at nodes with no outgoing edges. Integrating paired-end information during or after the assembly process would allow the join different contigs, resolving repeats and creating longer, more continuous **scaffolds**.
 
 ### 3. Graph Compaction with Supernodes
-To optimize memory usage and simplify traversal, the graph could be compacted into a **Compressed De Bruijn Graph**. By merging non-branching paths (chains of nodes with in-degree and out-degree of 1, that is almost equivalent to our non-forked contigs) into single **supernodes**, the number of elements to manage would drastically decrease without losing genomic information. This is totally useless for simple genomes but is of uttermost importance if this tool were to be used in more complex genomes, in order to reduce the impact on memory of the tool.
+To optimize memory usage and simplify traversal, the graph could be compacted into a **Compressed De Bruijn Graph**. By merging non-branching paths (chains of nodes with in-degree and out-degree of 1, that is almost equivalent to our non-forked contigs) into single **supernodes**, the number of elements to manage would drastically decrease without losing genomic information. This is totally useless for simple genomes but is of uttermost importance if this tool were to be used in more complex genomes, in order to reduce the impact of the tool on memory.
 
 
 
