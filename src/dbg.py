@@ -22,12 +22,55 @@ class Dbg:
     This class manages the full genome assembly process: from read parsing 
     and graph construction to topological pruning (bubbles/tips/short islands) and 
     final contig extraction and writing to output files .
+
+    :ivar k: K-mer length used for graph construction.
+    :vartype k: int
+    :ivar file_nameR1: Path to the primary sequence file.
+    :vartype file_nameR1: str
+    :ivar file_type: File format (must be either 'fasta' or 'fastq').
+    :vartype file_type: str
+    :ivar paired: Whether the assembly must proceed on paired-end reads. Only fastq can be paired
+    :vartype paired: bool
+    :ivar file_nameR2: Path to the secondary sequence file if paired.
+    :vartype file_nameR2: str or None
+    :ivar reverse_r2: Whether R2 reads are already reverted.
+    :vartype reverse_r2: bool
+    :ivar graph_built: Flag indicating if the graph has been constructed.
+    :vartype graph_built: bool
+    :ivar pruned_graph: Flag indicating if low-coverage edges were removed.
+    :vartype pruned_graph: bool
+    :ivar bubbles_processed: Flag indicating if bubbles were resolved.
+    :vartype bubbles_processed: bool
+    :ivar tips_processed: Flag indicating if dead-ends were removed.
+    :vartype tips_processed: bool
+    :ivar isolated_contigs_removed: Flag indicating if short isolated islands were cleaned.
+    :vartype isolated_contigs_removed: bool
+    :ivar contigs_assembled: Flag indicating if the path traversal has been completed.
+    :vartype contigs_assembled: bool
+    :ivar contigs_forked_in_hub: Flag indicating if deeper exploration beyond hubs was enabled.
+    :vartype contigs_forked_in_hub: bool
+    :ivar contigs_written: Flag indicating if the results were exported to a FASTA file.
+    :vartype contigs_written: bool
+    :ivar contigs_output_fasta: Name/path of the generated output file.
+    :vartype contigs_output_fasta: str
+    :ivar nodes: Storage for (k-1)-mer objects {sequence: Node}.
+    :vartype nodes: dict
+    :ivar edges: Storage for k-mer objects {sequence: Edge}.
+    :vartype edges: dict
+    :ivar contigs: List of assembled Contig objects.
+    :vartype contigs: list
+    :ivar bubbles: Collection of detected Bubble structures.
+    :vartype bubbles: dict
+    :ivar tips: Collection of detected Tip structures.
+    :vartype tips: dict
+
     """
 
     def __init__(self, k: int, file_name: str, file_type: str, paired: bool = False, 
                  file_nameR2: str = None, reverse_r2: bool = False):
         """
         Initializes the DBG with assembly parameters and input file metadata.
+        DOES NOT build the graph
 
         :param k: K-mer length (must be odd for better graph structure).
         :type k: int

@@ -177,7 +177,7 @@ Basic Workflow:
 
 ## ⚙️ Parameter Guide
 
-### Graph Building
+	### Graph Building
 
 **`k` (k-mer size)**
 - **Lower k (15-25)**: More connections, better for low coverage or diverse data. Risk: more branches

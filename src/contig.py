@@ -37,7 +37,9 @@ class Contig:
     :type remaining: bool
     :ivar from_catch_all: Whether from final circular/isolated search
     :type from_catch_all: bool
-    :ivar tag: Topological classification tag
+    :ivar main_tag: Topological classification tag
+    :type main_tag: str
+    :ivar tag: More detailed topological classification tag
     :type tag: str
     :ivar branch_kmer: K-mer where lariat branches (for lariat structures)
     :type branch_kmer: str or None
