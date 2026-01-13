@@ -6,9 +6,8 @@
 CivilWar DBG Assembler documentation
 ====================================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+This tool implements a genome assembler based on the De Bruijn Graph formalism.
+It accepts k-mer inputs from FASTA/FASTQ reads to construct the graph structure and performs a topology-aware assembly process.
 
 
 .. toctree::

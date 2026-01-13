@@ -1,93 +1,61 @@
-src package
-===========
+Modules documentation
+=====================
 
-Submodules
-----------
-
-src.bubble module
------------------
-
-.. automodule:: src.bubble
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.contig module
------------------
-
-.. automodule:: src.contig
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.dbg module
---------------
-
-.. automodule:: src.dbg
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.edge module
----------------
-
-.. automodule:: src.edge
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.kmer module
----------------
-
-.. automodule:: src.kmer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.node module
----------------
-
-.. automodule:: src.node
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.parser module
------------------
-
-.. automodule:: src.parser
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-src.pipeline\_function module
------------------------------
+High-Level Assembly Pipeline
+----------------------------
+This is the main entry point for the assembler. Use this function for
+automated workflows.
 
 .. automodule:: src.pipeline_function
    :members:
    :undoc-members:
    :show-inheritance:
 
-src.tip module
---------------
+Graph Engine & Topology
+-----------------------
+These modules handle the core De Bruijn Graph logic and topological structures.
+
+.. automodule:: src.dbg
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.bubble
+   :members:
+   :show-inheritance:
 
 .. automodule:: src.tip
    :members:
-   :undoc-members:
    :show-inheritance:
 
-src.utils module
-----------------
+
+.. automodule:: src.contig
+   :members:
+   :show-inheritance:
+
+Low-Level Components
+--------------------
+Internal graph elements (Node, Edge)
+
+.. automodule:: src.node
+   :members:
+
+.. automodule:: src.edge
+   :members:
+
+
+
+Data Parsing & Utilities
+------------------------
+Low-level components for file handling and DNA sequence processing.
+
+.. automodule:: src.parser
+   :members:
+   :show-inheritance:
+
+.. automodule:: src.kmer
+   :members:
 
 .. automodule:: src.utils
    :members:
-   :undoc-members:
-   :show-inheritance:
 
-Module contents
----------------
 
-.. automodule:: src
-   :members:
-   :undoc-members:
-   :show-inheritance:
