@@ -45,10 +45,12 @@ def checkOpenFastFile(file_name: str, file_type: str):
     Checks the integrity of a genomic file and opens it.
 
     This function performs several checks on the provided file:
+
         * Verifies the file path exists.
         * Validates the extension based on the file_type:
-            * fastq: .fastq, .fq, .fastq.gz, .fq.gz
-            * fasta: .fasta, .fa, .fasta.gz, .fa.gz
+
+            * fastq: [.fastq, .fq, .fastq.gz, .fq.gz]
+            * fasta: [.fasta, .fa, .fasta.gz, .fa.gz]
         * Confirms the user has read permissions.
         * Validates the first character on non empty rows ('>' for FASTA, '@' for FASTQ).
 

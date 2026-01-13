@@ -11,8 +11,8 @@ class Tip:
         they form a short path that leads nowhere (or starts from nowhere).
 
         We distinguish two types of tips:
-            - Type I (Outgoing):** Starts at a graph hub and ends in a dead end (no outgoing edges).
-            - Type II (Incoming):** Starts at a dead end (no incoming edges) and merges into a hub.
+            - Type I (Outgoing): Starts at a graph hub and ends in a dead end (no outgoing edges).
+            - Type II (Incoming): Starts at a dead end (no incoming edges) and merges into a hub.
 
         :ivar initial_node: The starting node of the tip.
         :type initial_node: Node

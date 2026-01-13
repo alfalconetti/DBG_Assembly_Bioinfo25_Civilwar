@@ -2,10 +2,11 @@ class Edge:
     """
         This class represents a connection (edge) in the De Bruijn Graph.
 
-        Basically, an edge is a k-mer found in your reads. It acts as a bridge
+        Basically, an edge is a k-mer found in the reads. It acts as a bridge
         connecting a prefix (source node) to a suffix (destination node).
-        We use this object to keep track of the sequence, how many times it appears
+        This object allows to keep track of the sequence, how many times it appears
         (weight), and whether we have already used it during the assembly process.
+        The visited flag is reset after every assembly cycle
 
         :ivar seq: The nucleic acid sequence of the k-mer.
         :type seq: str

@@ -195,6 +195,7 @@ class Dbg:
             Decomposes a single DNA read into overlapping k-mers and updates the graph.
 
             For every k-mer in the read:
+
             1. It identifies the Prefix (Source Node) and Suffix (Destination Node).
             2. It creates or updates the Edge connecting them.
             3. It increases the Edge weight (coverage).
@@ -278,6 +279,7 @@ class Dbg:
             Prints a summary of the current graph status.
 
             It reports:
+            
             - Total nodes and edges.
             - Number of hubs (complex junctions).
             - Average coverage.
