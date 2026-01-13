@@ -1,8 +1,27 @@
-def parser(file_name, file_type, quality = False, verbose = True): ##FASTA o FASTQ
+def parser(file_name: str, file_type: str, quality: bool = False, verbose: bool = True):
+    """
+    Main entry point for parsing genomic files. 
+    It changes the parsing logic based on the file type.
+
+    :param file_name: Path to the FASTA or FASTQ file.
+    :type file_name: str
+    :param file_type: Type of file to parse ('fasta' or 'fastq').
+    :type file_type: str
+    :param quality: Whether to return quality strings (only for FASTQ), defaults to False.
+    :type quality: bool, optional
+    :param verbose: Whether to print status messages, defaults to True.
+    :type verbose: bool, optional
+    :yield: A tuple containing (sequence, quality_string). Quality is None for FASTA.
+    :rtype: tuple(str, str or None)
+    :raises TypeError: If 'quality' is not a boolean.
+    :raises ValueError: If 'file_type' is not 'fasta' or 'fastq'.
+    """
     if not isinstance(quality, bool):
         raise TypeError("quality must be boolean")
     if file_type not in ("fasta", "fastq"):
         raise ValueError("Only allowed flags are 'fasta' and 'fastq'")
+    if not isinstance(verbose, bool):
+        raise TypeError("verbose must be boolean")
     if quality and file_type == 'fasta':
         print("You can't use quality flag for FASTA")
     if verbose:
@@ -19,22 +38,28 @@ def parser(file_name, file_type, quality = False, verbose = True): ##FASTA o FAS
         f.close() #Chiudi file a prescindere da errori
 
 
-def checkOpenFastFile(file_name, file_type):
+def checkOpenFastFile(file_name: str, file_type: str):
     """
-    This function checks if a provided fastq or fasta name as a string:
-     exists;
-     has the right extension 
-      (.fastq",".fq",".fastq.gz",".fq.gz accepted) if fastq;
-      (.fasta",".fa",".fasta.gz",".fa.gz accepted) if fasta;
-     user has permission to read;
-     starts with a '@';
-    Then returns the open file;
+    Checks the integrity of a genomic file and opens it.
 
-    --Parameters
-    :param file_name a string referring to the file path
+    This function performs several checks on the provided file:
+        * Verifies the file path exists.
+        * Validates the extension based on the ``file_type``:
+            * fastq: .fastq, .fq, .fastq.gz, .fq.gz
+            * fasta: .fasta, .fa, .fasta.gz, .fa.gz
+        * Confirms the user has read permissions.
+        * Validates the first character ('>' for FASTA, '@' for FASTQ).
 
-    --Returns
-    open file at beginning 
+    :param file_name: The path to the file to be opened.
+    :type file_name: str
+    :param file_type: The format of the file, either 'fasta' or 'fastq'.
+    :type file_type: str
+    :return: An open file handle positioned at the start of the file.
+    :rtype: file object
+    :raises FileNotFoundError: If the file does not exist.
+    :raises ValueError: If the extension or the header character is invalid.
+    :raises PermissionError: If the file is not readable.
+    
     """
     from gzip import open as gzopen
     import os
@@ -74,6 +99,17 @@ def checkOpenFastFile(file_name, file_type):
 
 def seqParserFastq(f, quality = False):
     """
+    Low-level FASTQ parser.
+
+    Processes the file in 4-line blocks, validating headers, sequence symbols,
+    and quality string lengths.
+
+    :param f: The open file object.
+    :param quality: If True, yields the quality string alongside the sequence.
+    :type quality: bool
+    :yield: A tuple (sequence, quality_or_None).
+    :rtype: tuple(str, str or None)
+    :raises ValueError: If the file is corrupted or contains unknown nucleotides.
     """
     allowed_symbols = 'AGCTN'
     i = 0
@@ -105,6 +141,14 @@ def seqParserFastq(f, quality = False):
 
 def seqParserFasta(f):
     """
+    Low-level FASTA parser.
+
+    Supports multi-line sequences and ignores empty lines.Also validates nucleotides.
+
+    :param f: The open file object.
+    :yield: A tuple (sequence, None).
+    :rtype: tuple(str, None)
+    :raises ValueError: If unknown symbols are found in the sequence.
     """
     allowed_symbols = 'AGCTN'
     sequence = ''

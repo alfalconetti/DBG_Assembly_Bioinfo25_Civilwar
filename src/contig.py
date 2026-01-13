@@ -9,7 +9,7 @@ class Contig:
     - Linear: A simple path with distinct start and end points.
     - Circular: A closed loop where the start and end nodes coincide.
     - Lariat: A 'lasso' structure where a linear 'tail' leads into a cycle, 
-      often indicative of unresolved repeats or sequencing artifacts.
+    often indicative of unresolved repeats or sequencing artifacts.
 
     The class supports additive composition via '__add__', merging sequences 
     (handling k-mer/edges overlaps) and consolidating topological metadata.
@@ -344,24 +344,27 @@ class Contig:
 
         This method populates the 'main_tag' and 'tag' attributes. The classification 
         follows a hierarchical logic:
+
         1. Structural exceptions that are always linear (Tips)
         2. Global topology (Circular or Lariat)
         3. Local features (Bubbles or Hub traversal)
 
         Classification categories:
+
         - linear: Standard path with distinct ends.
-        - circular: Closed loop. Sub-tagged as 'isolated' 
-          or 'from_hub'.
+        - circular: Closed loop. Sub-tagged as 'isolated' or 'from_hub'.
         - lariat: Path that ends by looping back onto an internal node.
         - suffixes: 
-            - _simple: No variants or hubs involved.
-            - _with_bubble: Contains a resolved structural variant.
-            - _through_hub: Traversed a branching point (fork_in_hub).
+          
+          - _simple: No variants or hubs involved.
+          - _with_bubble: Contains a resolved structural variant.
+          - _through_hub: Traversed a branching point (fork_in_hub).
         
-        The tagging system is better explained in the project README
+        The tagging system is better explained in the project README.
+
         :return: None. Updates 'self.main_tag' and 'self.tag' in-place.
-        
         """
+
         # ALL CIRCULAR NOT ISOLATED START FROM A HUB AND END IN HUB. RESIDUAL TUTTI START IN HUB
         
         bubble_tag = "_with_bubble"

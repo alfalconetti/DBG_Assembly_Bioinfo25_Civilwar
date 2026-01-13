@@ -884,6 +884,7 @@ class Dbg:
         The full assembly engine. Orchestrates the global traversal of the graph.
         
         The process follows four main stages:
+        
         1. Primary traversal from identified start nodes, stopping as soon as a linear contig ends if
            fork_in_hub is false, otherwise trying to solve it.
         2. Structural resolution (Bubbles/Tips/simple forks) if an intersection is met and fork_in_hub is True.
