@@ -1,5 +1,5 @@
 from statistics import median
-from contig import Contig
+from src.contig import Contig
 class Bubble:
     """
         This class represents a "Bubble" in the De Bruijn Graph.

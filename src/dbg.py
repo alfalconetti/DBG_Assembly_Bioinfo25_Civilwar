@@ -1,14 +1,14 @@
 # IMPORT GRAPH BASIC STRUCTURES
-from node import Node
-from edge import Edge
-from contig import Contig
+from src.node import Node
+from src.edge import Edge
+from src.contig import Contig
 # IMPORT BUBBLES AND TIPS FOR TOPOLOGICALLY BASED PRUNING
-from bubble import Bubble
-from tip import Tip
+from src.bubble import Bubble
+from src.tip import Tip
 # IMPORT HELPER FUNCTIONS
-from kmer import kmer_generate
-from parser import parser
-from utils import rc, median_qual
+from src.kmer import kmer_generate
+from src.parser import parser
+from src.utils import rc, median_qual
 
 from statistics import median
 

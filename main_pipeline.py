@@ -1,6 +1,6 @@
 import time
 import sys
-from dbg import Dbg
+from src.dbg import Dbg
 
 
 def main():

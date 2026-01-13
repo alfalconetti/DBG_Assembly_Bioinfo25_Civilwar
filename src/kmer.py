@@ -1,4 +1,4 @@
-from utils import rc
+from src.utils import rc
 
 def kmer_generate(sequence, k, reverse = False):
     """

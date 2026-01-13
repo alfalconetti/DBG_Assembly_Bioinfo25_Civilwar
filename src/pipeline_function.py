@@ -1,4 +1,4 @@
-from dbg import Dbg
+from src.dbg import Dbg
 def run_assembly_pipeline(
     k, 
     file_name, 
