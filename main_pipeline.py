@@ -20,9 +20,6 @@ def main():
         4.  Assembly: Traverses the cleaned graph to generate contigs (sequences).
         5.  Output & Stats: Writes the results to a file and calculates quality metrics (N50).
 
-        Configuration:
-        File paths and parameters (k-mer size, thresholds) are currently defined
-        as constants at the beginning of this function.
 
         :raises SystemExit: If a critical error occurs during graph construction (e.g., file not found).
     """

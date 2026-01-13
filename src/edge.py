@@ -35,3 +35,6 @@ class Edge:
         self.destination = destination
         self.weight = 1
         self.visited = False
+
+    def __repr__(self):
+        return self.seq

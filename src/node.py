@@ -47,3 +47,6 @@ class Node:
 
     def __eq__(self, other):
         return self.seq == other.seq
+
+    def __repr__(self):
+        return self.seq

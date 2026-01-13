@@ -1,7 +1,9 @@
 def parser(file_name: str, file_type: str, quality: bool = False, verbose: bool = True):
     """
-    Main entry point for parsing genomic files. 
-    It changes the parsing logic based on the file type.
+    Main function for parsing genomic files. 
+    It changes the parsing logic based on the file type and yields a sequence
+    tuple containing the sequence string and the quality string if asked (only for
+    FASTQ parsing).
 
     :param file_name: Path to the FASTA or FASTQ file.
     :type file_name: str
@@ -44,11 +46,11 @@ def checkOpenFastFile(file_name: str, file_type: str):
 
     This function performs several checks on the provided file:
         * Verifies the file path exists.
-        * Validates the extension based on the ``file_type``:
+        * Validates the extension based on the file_type:
             * fastq: .fastq, .fq, .fastq.gz, .fq.gz
             * fasta: .fasta, .fa, .fasta.gz, .fa.gz
         * Confirms the user has read permissions.
-        * Validates the first character ('>' for FASTA, '@' for FASTQ).
+        * Validates the first character on non empty rows ('>' for FASTA, '@' for FASTQ).
 
     :param file_name: The path to the file to be opened.
     :type file_name: str
@@ -84,15 +86,20 @@ def checkOpenFastFile(file_name: str, file_type: str):
         if not f.readable():
             raise PermissionError(f"You do not have read access for {file_name}")
         else:
-            is_file_empty = False
             try:
-                if f.readline()[0] != first_char:
+                row = f.readline()
+                while row and row.strip() == "":
+                    row = f.readline()
+                if not row:
+                    raise ValueError("Your file is empty")        
+                if row[0] != first_char:
                     tip = ".Try manually inspecting it in a text editor" if not file_name.endswith(".gz") else ".Are you sure it is not a tar archive?" 
                     raise ValueError("Your file does not seem to be a " + file_type + tip)
-            except IndexError:
-                is_file_empty = True
-        if is_file_empty:
-            raise ValueError("Your file is empty")
+                
+            except Exception as e:
+                f.close()
+                raise e
+                
         f.seek(0)
     return f
 
