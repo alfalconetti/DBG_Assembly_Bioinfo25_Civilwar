@@ -3,7 +3,32 @@
 
 This tool implements a genome assembler based on the De Bruijn Graph formalism. It accepts k-mer inputs to construct the graph structure and performs a topology-aware assembly process.
 
-This implementation can explicitly identify and handle graph complexities such as sequencing artifacts (tips or bubbles), biological variants (bubbles), and isolated components. The assembly engine traces paths through the graph and assigns a specific topological class to each generated contig. This provides granular insights into the graph structure directly in the output metadata, enabling downstream analysis using comprehensive parsing-ready FASTA headers.
+This implementation can explicitly identify and handle graph complexities such as sequencing artifacts (tips or bubbles), biological variants (bubbles), and isolated components. The assembly engine traces paths through the graph and assigns a specific topological class to each generated contig.
+
+This provides granular insights into the graph structure directly in the output metadata, enabling downstream analysis using comprehensive parsing-ready FASTA headers.
+
+---
+## 📌 Table of Contents
+- [Key Features](#key-features)
+- [📚 Key Terms](#-key-terms)
+  - [Graph Components](#graph-components)
+  - [Graph Particular Structures](#graph-particular-structures)
+  - [Contig Shapes](#contig-shapes)
+  - [Assembly Terms](#assembly-terms)
+- [Installation](#installation)
+- [📖 Technical Documentation](#-technical-documentation)
+- [USAGE](#usage)
+  - [1. Automated Pipeline (Quick Start)](#1-automated-pipeline-quick-start)
+  - [2. Manual Control (Step-by-Step)](#2-manual-control-step-by-step)
+- [⚙️ Parameter Guide](#%EF%B8%8F-parameter-guide)
+- [Contig Tagging](#contig-tagging)
+  - [1. Primary Topologies](#1-primary-topologies-main_tag)
+  - [2. How Tags are Assigned](#2-how-tags-are-assigned-get_tag)
+  - [3. FASTA Header Format](#3-fasta-header-format)
+- [Areas for Improvement](#areas-for-improvement)
+- [👥 Credits](#-credits)
+
+
 
 ---
 ## Key Features
@@ -11,7 +36,7 @@ This implementation can explicitly identify and handle graph complexities such a
 - **Explicit Stats calculation** At any moment you can ask for the current graph stats, that give you insight on the actual number of *edges*, *nodes* (including *hubs* and *receiving hubs*), *average coverage* and number of *bubbles and tips* kept after processing
 - **Eulerian Path Detection** Explicitly detects the presence of a single *eulerian path* (circular or linear), fundamental to understand if the cleaning graph procedure managed to fully simplify the graph (if possible)
 - **Structural Variant Resolution:** Automated handling of *bubbles* (biological variants/sequencing artifacts) and *tips* (sequencing artifacts) during path extension. Bubbles and tips can be removed or kept if considered biological variants, through user-defined thresholds
-- **fork_in_hub option** When enabled, this parameter allows to explore one level of depth of the graph, allowing to resolve bubble structures or to walk through hubs keeping the 5' part of the contig as common between different complex contigs. This, however, poses the risk of creating chimeric assemblies and can overestimate the n50 calculation
+- **fork_in_hub option** When enabled, this parameter allows to explore one level of depth in the graph, allowing to resolve bubble structures or to walk through hubs keeping the 5' part of the contig as common between different complex contigs. This, however, poses the risk of creating chimeric assemblies and can overestimate the n50 calculation
 - **Advanced Topological Tagging:** Every contig is classified based on its connectivity and shape within the graph (e.g., *Linear, Circular, Lariat*), the assembly phase where it was generated and where it started/ended
 - **Metadata-Rich FASTA Output:** Generates FASTA headers containing median k-mer coverage, length, topological tags and necessary structural information to better understand the origin of the topological complications that interrupted the assembly.
 
@@ -63,6 +88,23 @@ cd DBG_Assembly_Bioinfo25_Civilwar
 
 All modules must be imported from `src` folder.
 
+--- 
+
+## 📖 Technical Documentation
+All documentation is available via Sphinx using a browser based interface. 
+
+To generate and view the documentation:
+1. Ensure you have the theme installed: `pip install sphinx-rtd-theme`
+2. Run the build command:
+   ```bash
+   cd docs
+   make html
+	```
+
+​Open `docs/_build/html/index.html` in your browser.
+
+​This will provide a searchable interface for all classes and their methods.
+
 ---
 
 ## USAGE
@@ -90,7 +132,7 @@ dbg, lengths, n50 = run_assembly_pipeline(
 ) 
 ```
 
-You can find full documentation for this function in its file.
+You can find full documentation for this function as described above
 
 
 ### 2. Manual Control (Step-by-Step)
@@ -319,7 +361,7 @@ Developing a dedicated CLI (e.g. using `argparse`) would make the tool more acce
 
 ## 👥 Credits
 
-This project was developed as part of the Programmazione per la Bioinformatica course (2025/26) in Univeristy of Bari.
+This project was developed as part of the Programmazione per la Bioinformatica course (2025/26) in University of Bari.
 
 * *Developers*
   * De Lorenzis Stefano - [stedelorenzis]

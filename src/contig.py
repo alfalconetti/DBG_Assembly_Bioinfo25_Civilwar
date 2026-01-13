@@ -290,7 +290,7 @@ class Contig:
         Features:
         - Median coverage calculation (more robust than mean against sequencing bias).
         - Conditional tags: branch (lariat), bubble_ends, tip_from, or hub_origin.
-        - K-mer truncation to 10bp to ensure better readability
+        - K-mer truncation to 10bp to ensure better readability when high value of k is used
         """
         from statistics import median
         # Tutti i k-mer sono troncati a 10 bp
