@@ -10,6 +10,7 @@ from src.kmer import kmer_generate
 from src.parser import parser
 from src.utils import rc, median_qual
 
+from collections.abc import Iterator, Generator
 from statistics import median
 
 import warnings
@@ -23,18 +24,19 @@ class Dbg:
     final contig extraction and writing to output files .
     """
 
-    def __init__(self, k, file_name, file_type, paired = False, file_nameR2 = None, reverse_r2 = False):
+    def __init__(self, k: int, file_name: str, file_type: str, paired: bool = False, 
+                 file_nameR2: str = None, reverse_r2: bool = False):
         """
         Initializes the DBG with assembly parameters and input file metadata.
 
-        :param k: K-mer length (must be odd for better topology).
+        :param k: K-mer length (must be odd for better graph structure).
         :type k: int
         :param file_name: Path to the R1 sequence file.
         :type file_name: str
         :param file_type: Format that must be one of ('fasta', 'fastq', 'fa', 'fq').
         :type file_type: str
         :param paired: Boolean for paired-end data. If true, a second file needs to be provided and both will be used 
-                       to build graph
+                       to build graph. Default is false.
         :type paired: bool
         :param file_nameR2: Path to the R2 sequence file (optional).
         :type file_nameR2: str or None
@@ -42,6 +44,7 @@ class Dbg:
                            know that your sequencer already reverse complemented the reads
         :type reverse_r2: bool
         """
+        # Valido parametri
         if not isinstance(k, int):
             raise TypeError('k parameter must be integer')
         if not isinstance(file_name, str):
@@ -58,6 +61,9 @@ class Dbg:
             raise ValueError(f"k must be between 3 and 101. Received: {k}")
         if k % 2 == 0:
             warnings.warn("k is even. Using an odd k is highly recommended to avoid topological complications")
+
+        # Setup grafo per costruzione
+
         self.k = k #lunghezza kmeri
         self.file_nameR1 = file_name
         if file_type in ['fa', 'fasta']:
@@ -82,6 +88,7 @@ class Dbg:
             if reverse_r2:
                 print("You set reverse_r2 to True but paired is false. It will not be used")
 
+        # Inizializzo stato del grafo
         self.graph_built = False
         self.pruned_graph = False
         self.bubbles_processed = False
@@ -91,14 +98,55 @@ class Dbg:
         self.contigs_forked_in_hub = False
         self.contigs_written = False
         self.contigs_output_fasta = ''
+
+        # Inizializzo strutture dati del grafo
         self.nodes = {}  #dizionario nodi
         self.edges = {}  #dizionario archi
         self.contigs = []
         self.bubbles = {}
         self.tips = {}
 
-    def build_graph(self, quality_check = False, quality_threshold = 30, use_both_strands = True, verbose=True):
-        def put_reads_graph(reads, quality_check, use_both_strands, reverse_complement = False, verbose=True):
+    def build_graph(self, quality_check: bool = False, quality_threshold: int = 30, use_both_strands: bool = True, verbose: bool = True):
+        """
+        Drives the construction of the De Bruijn Graph from input FASTA/FASTQ files.
+
+        This method coordinates the parsing of sequencing reads (R1 and optionally R2),
+        applies quality filters (brutal whole read median trimming) if requested (quality_check),
+        and populates the graph by adding k-mers as edges and k-1 mers as nodes. 
+        It handles both single-end and paired-end data.
+        Can use k-mers from both strands of the reads to generate edges.
+
+        :param quality_check: Enable filtering reads based on their median Phred score, defaults to False.
+        :type quality_check: bool
+        :param quality_threshold: Minimum median Phred score required to keep a read, defaults to 30.
+        :type quality_threshold: int
+        :param use_both_strands: If True, adds both the forward and the reverse complement of each k-mer, defaults to True.
+        :type use_both_strands: bool
+        :param verbose: If True, prints status messages and final graph statistics, defaults to True.
+        :type verbose: bool
+        
+        :raises TypeError: If quality_check, quality_threshold, or use_both_strands are not of the expected type.
+        :return: None
+        """
+        def put_reads_graph(reads: Iterator[tuple[str, str | None]], quality_check: bool, use_both_strands: bool, reverse_complement: bool = False, verbose: bool =True) -> int:
+            """
+            Internal helper to iterate over reads and add them to the graph.
+
+            :param reads: An iterable (generator) of read tuples (sequence, quality|None) from the parser.
+            :type reads: iterator
+            :param quality_check: Whether to perform quality filtering.
+            :type quality_check: bool
+            :param use_both_strands: Whether to add reverse complements to the graph.
+            :type use_both_strands: bool
+            :param reverse_complement: If True, reverse complements the entire read before processing, defaults to False.
+                                       Totally useless if use_both_strands is True
+            :type reverse_complement: bool
+            :param verbose: If True, prints the number of discarded reads, defaults to True.
+            :type verbose: bool
+
+            :return: The number of reads discarded due to low quality.
+            :rtype: int
+            """
             reads_discarded = 0
             for read_tup in reads:
                 read = read_tup[0]
@@ -106,7 +154,7 @@ class Dbg:
                     read = rc(read)
                 if quality_check:
                     read_qual = read_tup[1]
-                    if median_qual(read_qual) > quality_threshold:
+                    if median_qual(read_qual) > quality_threshold: # La mediana della quality dell'intera riga deve essere sopra soglia
                         self.add_read(read, use_both_strands = use_both_strands)
                     else:
                         reads_discarded += 1
@@ -122,6 +170,8 @@ class Dbg:
             raise TypeError("quality_threshold must be integer")
         if not isinstance(use_both_strands, bool):
             raise TypeError("use_both_strands must be boolean")
+        if not isinstance(verbose, bool):
+            raise TypeError("verbose must be boolean")
         if self.file_type == 'fasta' and quality_check:
             print("You can't perform a quality check if your reads are in fasta format.")
             quality_check = False
@@ -197,6 +247,8 @@ class Dbg:
             raise RuntimeError("You cannot prune a graph if it does not exist")
         if not isinstance(threshold, int):
             raise TypeError("threshold must be integer")
+        if not isinstance(verbose, bool):
+            raise TypeError("verbose must be boolean")
         kmers_to_remove = []
         for kmer, edge in self.edges.items():
             if edge.weight < threshold:
@@ -313,7 +365,7 @@ class Dbg:
     @staticmethod
     def n50(lengths: list[int]) -> int:
         """
-            Calculates the N50 metric for assembly quality.
+            Static method that calculates the N50 metric for assembly quality.
 
             N50 is a standard bioinformatic metric. It is the length of the shortest contig
             such that the sum of contigs of this length or longer is at least 50%
@@ -345,6 +397,8 @@ class Dbg:
         """
             Helper method to remove nodes that have no connections.
         """
+        if not isinstance(verbose, bool):
+            raise TypeError("verbose must be boolean")
         nodes_to_rm = []
         for kmer, node in self.nodes.items():
             if len(node.incoming) == 0 and len(node.outgoing) == 0:
@@ -374,9 +428,9 @@ class Dbg:
             if edge.seq in self.edges:
                 del self.edges[edge.seq]
 
-    def _detect_bubbles(self, max_len: int):
+    def _detect_bubbles(self, max_len: int) -> Iterator["Bubble"]:
         """
-            Generator that searches for bubble structures in the graph.
+            Generator that searches for bubble structures in the graph, if shorter than a max_len parameter.
 
             It looks for "forks" (nodes with multiple outgoing edges) and tries to find
             paths that reconverge at a specific "sink" node within a certain distance (`max_len`).
@@ -384,6 +438,7 @@ class Dbg:
             :param max_len: The maximum length (in edges) of a bubble path.
             :type max_len: int
             :yield: Bubble objects found in the graph.
+            :rtype: Iterator[Bubble]
         """
         #generatore
 
@@ -426,12 +481,13 @@ class Dbg:
     def process_bubbles(self, cov_threshold: int=5, ratio_threshold: float=0.1, verbose: bool=True) -> int:
         """
             Iteratively finds and resolves bubbles in the graph.
-            This method keeps calling  `_detect_bubbles` and solving them until no more
-            bubbles can be resolved. It handles nested bubbles by running multiple iterations.
+            This method keeps calling  `_detect_bubbles` with maximum len 2k+1 and resolves 
+            them until no more bubbles can be resolved.
+            It handles nested bubbles by running multiple iterations.
 
-            :param cov_threshold: Coverage threshold used to distinguish errors from real variants. Defaults to 5
+            :param cov_threshold: Max coverage threshold used to distinguish errors from real variants. Defaults to 5
             :type cov_threshold: int
-            :param ratio_threshold: Ratio threshold used to distinguish between multiple paths in a bubble when over coverage
+            :param ratio_threshold: Max coverage ratio between paths and the best coverage one to collapse them. Defaults to 0.1.
             :param ratio_threshold: float
             :param verbose: If True, prints details about every iteration of processing bubbles.
             :type verbose: bool
@@ -448,6 +504,8 @@ class Dbg:
             raise TypeError("ratio_threshold must be float")
         elif ratio_threshold <= 0 or ratio_threshold > 1:
             raise ValueError("ratio_threshold must be between 0 and 1")
+        if not isinstance(verbose, bool):
+            raise TypeError("verbose must be boolean")
         max_len = (self.k * 2) + 1
         iteration = 1
         removed_bubbles = 0
@@ -477,17 +535,18 @@ class Dbg:
         self.bubbles_processed = True
         return removed_bubbles
 
-    def _detect_tips(self, max_len: int):
+    def _detect_tips(self, max_len: int) -> Iterator["Tip"]:
         """
-            Generator that searches for dead ends (Tips) in the graph.
+        Generator that searches for dead ends (Tips) in the graph, if shorter than a max_len parameter.
 
-            It scans for:
-            1. Type I Tips: Paths starting at a hub and dying out.
-            2. Type II Tips: Paths starting from nowhere and merging into a hub.
+        It scans for:
+        1. Type I Tips: Paths starting at a hub and stopping in a dead end.
+        2. Type II Tips: Paths starting from nowhere and merging into a hub.
 
-            :param max_len: Maximum length of a tip to be considered. Longer dead ends are kept as valid contigs.
-            :type max_len: int
-            :yield: Tip objects found in the graph.
+        :param max_len: Maximum length of a tip to be considered. Longer dead ends are kept as valid contigs.
+        :type max_len: int
+        :yield: Tip objects found in the graph.
+        :rtype: Iterator[Tip]
         """
         # Detection tips di tipo I
         potential_inital_nodes_I = [node for node in self.nodes.values() if node.is_hub()]
@@ -517,9 +576,6 @@ class Dbg:
         # Detection tips di tipo II
         potential_initial_nodes_II = [node for node in self.nodes.values() if len(node.incoming) == 0 and len(node.outgoing) == 1]
         for initial_node in potential_initial_nodes_II:
-            #if initial_node.is_hub():
-            #    continue # sarebbe trattato come un potenziale tips di tipo I
-            # ^ Inutile se metto outgoing come 1
             edge = initial_node.outgoing[0]
             path = [edge]
             curr = edge.destination
@@ -544,17 +600,17 @@ class Dbg:
 
     def process_tips(self, cov_threshold: int=5, verbose: bool=True) -> int:
         """
-            Iteratively removes dead ends (Tips) from the graph.
+        Iteratively removes dead ends (Tips) from the graph.
 
-            This effectively "shaves" the hairy parts of the graph caused by
-            sequencing errors at the ends of reads.
+        This effectively "shaves" the hairy parts of the graph caused by
+        sequencing errors at the ends of reads.
 
-            :param cov_threshold: Coverage threshold to confirm a tip is an error.
-            :type cov_threshold: int
-            :param verbose: If True, prints details about every iteration of processing tips.
-            :type verbose: bool
-            :return: Total number of tips removed.
-            :rtype: int
+        :param cov_threshold: Coverage threshold to confirm a tip is an error.
+        :type cov_threshold: int
+        :param verbose: If True, prints details about every iteration of processing tips.
+        :type verbose: bool
+        :return: Total number of tips removed.
+        :rtype: int
         """
         if not self.graph_built:
             raise RuntimeError("You cannot process tips in a graph if it does not exist")
@@ -589,18 +645,18 @@ class Dbg:
         self.tips_processed = True
         return removed_tips
 
-    def process_short_islands(self, verbose: bool=True) -> int:
+    def process_short_islands(self, verbose: bool = True) -> int:
         """
-            Identifies and removes isolated connected components ("islands") that are
-            shorter than a safety threshold.
-            This method performs a global cleanup of the graph by finding all disconnected
-            subgraphs.
+        Identifies and removes isolated connected components ("islands") that are
+        shorter than a safety threshold.
+        This method performs a global cleanup of the graph by finding all disconnected
+        subgraphs.
 
-            :param verbose: If True, prints statistics about the removal process to stdout.
-            :type verbose: bool
-            :return: The number of independent islands removed.
-            :rtype: int
-            :raises RuntimeError: If the graph has not been built yet.
+        :param verbose: If True, prints statistics about the removal process to stdout.
+        :type verbose: bool
+        :return: The number of independent islands removed.
+        :rtype: int
+        :raises RuntimeError: If the graph has not been built yet.
         """
         if not self.graph_built:
             raise RuntimeError("You cannot process islands in a graph if it does not exist")
@@ -673,25 +729,44 @@ class Dbg:
         self.isolated_contigs_removed = True
         return deleted_islands
 
-    def is_eulerian_linear(self):
+    def is_eulerian_linear(self) -> bool:
+        """
+        Checks if the current graph satisfies the conditions for a linear Eulerian path.
+        
+        A linear Eulerian path exists if there is exactly one source (in-degree 0),
+        one exit (out-degree 0), and no hubs (branching points).
+
+        :return: True if the graph is a single linear path, False otherwise.
+        :rtype: bool
+        """
         number_0_in = [node for node in self.nodes.values() if len(node.incoming) == 0]
         number_0_out = [node for node in self.nodes.values() if len(node.outgoing) == 0]
         number_hub = [node for node in self.nodes.values() if node.is_hub()]
         return number_0_in == number_0_out and number_0_in == 1 and number_hub == 0
 
-    def is_eulerian_circular(self):
+    def is_eulerian_circular(self) -> bool:
+        """
+        Checks if the current graph satisfies the conditions for a circular Eulerian circuit.
+        
+        A circular Eulerian circuit exists if every node has in-degree == out-degree == 1
+        and there are no sources, exits, or hubs.
+
+        :return: True if the graph is a single perfect cycle, False otherwise.
+        :rtype: bool
+        """
         number_0_in = [node for node in self.nodes.values() if len(node.incoming) == 0]
         number_0_out = [node for node in self.nodes.values() if len(node.outgoing) == 0]
         number_hub = [node for node in self.nodes.values() if node.is_hub()]
         return number_0_in == number_0_out and number_0_in == 0 and number_hub == 0
 
-    def _walk_linear(self, start_edge):
+    def _walk_linear(self, start_edge: "Edge") -> tuple[str, "Node", list[int], set[str]]:
         """
         Performs a linear traversal of the graph starting from a specific edge.
         
         The traversal continues as long as nodes have an out-degree of 1 and 
-        the next edge has not been visited yet. It assembles linear segments of DNA and stops
-        as soon as there is no more linearity.
+        the next edge has not been visited yet. 
+        It assembles linear segments of DNA and stops as soon as there is no 
+        more linearity or the path merges with an already visited one.
 
         :param start_edge: The Edge object where the traversal begins.
         :type start_edge: Edge
@@ -722,7 +797,7 @@ class Dbg:
                 receiving_hubs_visited.add(curr.seq)
         return seq, curr, walk_weights, receiving_hubs_visited
 
-    def _checks_and_create_starts(self, fork_in_hub):
+    def _checks_and_create_starts(self, fork_in_hub: bool) -> list["Node"]:
         """
         Validates graph state and identifies starting points for assembly.
         
@@ -754,7 +829,7 @@ class Dbg:
             all_starts += internal_hubs
         return all_starts
 
-    def _assemble_bubble(self, bubble_to_assemble, common_contig):
+    def _assemble_bubble(self, bubble_to_assemble: "Bubble", common_contig: "Contig") -> list["Contig"]:
         """
         Resolves a bubble structure by integrating all its paths with the current 
         preceeding contig.
@@ -804,7 +879,7 @@ class Dbg:
             contigs.append(whole_contig)
         return contigs
 
-    def assemble_contigs(self, fork_in_hub = False):
+    def assemble_contigs(self, fork_in_hub: bool = False) -> list["Contig"]:
         """
         The full assembly engine. Orchestrates the global traversal of the graph.
         

@@ -47,10 +47,10 @@ This implementation can explicitly identify and handle graph complexities such a
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### Requirements
-- Python 3.8 or higher
+- Python 3.9 or higher
 - No external dependencies (uses only Python standard library)
 
 ### Setup
@@ -61,7 +61,7 @@ cd DBG_Assembly_Bioinfo25_Civilwar
 
 ```
 
-All modules must be in the same folder for the project to work.
+All modules must be imported from `src` folder.
 
 ---
 
@@ -73,7 +73,7 @@ The assembler is designed for both automated execution and manual graph manipula
 The run_assembly_pipeline function is the fastest way to assemble your data. It handles everything from FASTQ parsing to N50 calculation. Example usage is below.
 
 ```python
-from pipeline_function import run_assembly_pipeline
+from src.pipeline_function import run_assembly_pipeline
 
 dbg, lengths, n50 = run_assembly_pipeline(
     k=31,
@@ -109,6 +109,8 @@ Basic Workflow:
    - **process_short_islands()** → Remove small isolated components 
 5. **Check Stats Again** → Verify the cleaning improved the graph
 6. **Check if graph is eulerian** → Verify if the cleaning put the graph in eulerian conditions: perfect assembly expected
+   - **`is_eulerian_linear()`** 
+   - **`is_eulerian_circular()`**
 7. **Assemble** → Generate contigs by traversing the cleaned graph
 8. **Write Output** → Save contigs to FASTA with metadata
 9. **Calculate N50** → Assess assembly quality

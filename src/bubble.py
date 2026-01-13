@@ -100,12 +100,13 @@ class Bubble:
         """
             A generator that reconstructs the DNA sequences for all paths in the bubble.
 
-            It walks through the edges of each path, stitching the k-mers together
-            (handling the k-1 overlap) and collecting the coverage weights.
+            It walks through the edges of each path, joining the k-mers together
+            (handling the k-1 overlap) and collecting the coverage weights and eventual
+            receinving hubs found.
 
             :param k: The k-mer length used for the assembly
             :type k: int
-            :yield: A fully initialized Contig instance representing one of the bubble's branches
+            :yield: A fully initialized Contig instance representing each one of the bubble's branches
             :rtype: Iterator[Contig]
         """
         for path in self.paths: #generatore Contig
