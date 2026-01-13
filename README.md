@@ -102,6 +102,8 @@ To generate and view the documentation:
 
 ​Open `docs/_build/html/index.html` in your browser.
 
+You can also use the `documentation.pdf` in the root repo folder but it may not be up to date
+
 ​This will provide a searchable and interconnected interface for all classes and their methods.
 
 ---
