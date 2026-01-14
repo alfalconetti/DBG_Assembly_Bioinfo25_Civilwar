@@ -45,7 +45,7 @@ def run_assembly_pipeline(
     :type file_nameR2: str or None
     :param reverse_r2: Whether R2 reads are already reverse complemented, defaults to False.
     :type reverse_r2: bool
-    :param offset:The Phred quality offset used by the sequencing platform. Defaults to 33. Can be 33 or 64
+    :param offset: The Phred quality offset used by the sequencing platform. Defaults to 33. Can be 33 or 64
     :type offset: int
     :param quality_check: Enable filtering k-mers by base quality, defaults to False.
     :type quality_check: bool

@@ -159,7 +159,7 @@ def seqParserFasta(f):
     :rtype: tuple[str, None]
     :raises ValueError: If unknown symbols are found in the sequence.
     """
-    allowed_symbols = 'AGCTN'
+    allowed_symbols = set('AGCTN')
     sequence = ''
     for row in f:
         row = row.strip()

@@ -193,12 +193,16 @@ class Dbg:
             :param verbose: If True, prints the number of discarded reads, defaults to True.
             :type verbose: bool
 
-            :return: The number of reads discarded due to low quality.
+            :return: The number of reads discarded due to low quality or N presence.
             :rtype: int
             """
             reads_discarded = 0
+            reads_with_N = 0
             for read_tup in reads:
                 read = read_tup[0]
+                if 'N' in read:
+                    reads_with_N += 1
+                    continue
                 if reverse_complement:
                     read = rc(read)
                 if quality_check:
@@ -210,8 +214,8 @@ class Dbg:
                 else:
                     self.add_read(read, use_both_strands = use_both_strands)
             if quality_check and verbose:
-                print(f"Discarded {reads_discarded} reads due to low median quality")
-            return reads_discarded
+                print(f"Discarded {reads_discarded} reads due to low median quality and {reads_with_N} due to N presence")
+            return reads_discarded+reads_with_N
 
         if not isinstance(quality_check, bool):
             raise TypeError("quality_check must be boolean")
