@@ -347,13 +347,13 @@ Finally, `circular_isolated` contigs should always be`_simple`. If they had a bu
 While this assembler provides a robust framework for De Bruijn Graph construction and topological analysis, several enhancements could improve its performance and scalability:
 
 ### 1. Parallelization in Graph Construction
-Currently, the graph is built sequentially. Implementing a multi-threaded approach for k-mer counting and edge addition would significantly reduce the execution time, especially for large multi-gigabyte FASTQ files. This has not been done yet because the Python GIL locks from accessing the same memory area (the nodes and edges dictionaries) and would need complex approaches such as the map and reduce.
+Currently, the graph is built sequentially. Implementing a multi-threaded approach for k-mer counting and edge addition would significantly reduce the execution time, especially for large multi-gigabyte FASTQ files. This has not been done yet because the Python GIL locks from accessing the same memory area (the nodes and edges dictionaries), this would force to create separate dictionaries to merge and the merging process may be quite computationally intensive.
 
 ### 2. Scaffolding with Paired-End Reads
-The current engine focuses on contig assembly through graph linear walk that stops in hubs or at nodes with no outgoing edges. Integrating paired-end information during or after the assembly process would allow the join different contigs, resolving repeats and creating longer, more continuous **scaffolds**.
+The current engine focuses on contig assembly through graph linear walk that stops in hubs or at nodes with no outgoing edges. Integrating paired-end information during or after the assembly process would allow the join different contigs, resolving repeats and creating longer, more continuous **scaffolds**. This is the case for more complex genomes that may result in an highly fragmented assembly (low N50)
 
 ### 3. Graph Compaction with Supernodes
-To optimize memory usage and simplify traversal, the graph could be compacted into a **Compressed De Bruijn Graph**. By merging non-branching paths (chains of nodes with in-degree and out-degree of 1, that is almost equivalent to our non-forked contigs) into single **supernodes**, the number of elements to manage would drastically decrease without losing genomic information. This is totally useless for simple genomes but is of uttermost importance if this tool were to be used in more complex genomes, in order to reduce the impact of the tool on memory.
+To optimize memory usage and simplify traversal, the graph could be compacted into a **Compressed De Bruijn Graph**. By merging non-branching paths (chains of nodes with in-degree and out-degree of 1, that is almost equivalent to our non-forked contigs) into single **supernodes**, the number of elements to manage would drastically decrease without losing genomic information. This is totally useless for simple small genomes but is of uttermost importance if this tool were to be used in big complex genomes, in order to reduce the impact of the tool on memory.
 
 
 
