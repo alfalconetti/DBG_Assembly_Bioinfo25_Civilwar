@@ -138,6 +138,8 @@ class Contig:
         """
         if not isinstance(other, Contig):
             raise TypeError(f"You can't sum {type(self)} object with {type(other)}")
+        if self.k != other.k:
+            raise ValueError(f"Cannot merge contigs with different k-mer sizes: {self.k} vs {other.k}")
         self.seq += other.seq[self.k-1:] # Salto le prime k-1 basi del suffisso per evitare di duplicarle
         self.start_node = self.start_node # Resta lo stesso, inutile ma esplicito
         self.final_node = other.final_node
@@ -208,7 +210,9 @@ class Contig:
             hub=self.hub,
             bubble_ends=self.bubble_ends,
             tip_hub=self.tip_hub,
-            hub_seq=self.hub_seq
+            hub_seq=self.hub_seq,
+            remaining = self.remaining,
+            from_catch_all = self.from_catch_all
         )
         new.main_tag = self.main_tag
         new.tag = self.tag  
@@ -379,7 +383,6 @@ class Contig:
             self.tag = "linear_with_tip"
             return # Se tip non servono altri controlli, solo lineare
         if self.is_circular(): # ALL CIRCULAR NOT ISOLATED START FROM A HUB
-            # QUI NON SERVE HUB STARTING CHE È SCONTATO, IMPORTANTE SOLO SE DA BUBBLE
             self.main_tag = "circular"
             self.tag = self.main_tag
             if not self.start_node.is_hub() and len(self.start_node.incoming) == 1:

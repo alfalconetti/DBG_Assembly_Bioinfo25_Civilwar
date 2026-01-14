@@ -1,5 +1,6 @@
 from statistics import median
 from src.contig import Contig
+import warnings
 class Bubble:
     """
         This class represents a "Bubble" in the De Bruijn Graph.
@@ -67,6 +68,7 @@ class Bubble:
             :rtype: bool
         """
         if len(self.paths) < 2: #se il nodo ricevente ha meno di due path... non è una bolla
+            warnings.warn("Bubble with less than 2 paths passed to resolve. There must have been an error in detection")
             return False
 
         path_stats = [] #lista di tuple, con coverage e path(lista edges)

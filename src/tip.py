@@ -74,7 +74,7 @@ class Tip:
     def _resolve(self, graph: "Dbg", cov_threshold: int) -> bool:
         """
             Removes the tip from the graph if its coverage is below the threshold.
-.
+
             :param graph: The main graph object (needed to delete edges).
             :type graph: Dbg
             :param cov_threshold: The coverage cutoff. Tips below this are removed.

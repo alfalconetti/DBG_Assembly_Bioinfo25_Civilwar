@@ -27,6 +27,6 @@ def median_qual(qual_string: str, offset: int = 33) -> float:
     if not isinstance(qual_string, str):
         raise TypeError("qual_string must be str")
     if not isinstance(offset, int):
-        raise TypeError("offset must be boolean")
+        raise TypeError("offset must be integer")
     qual_list = [ord(x) - offset for x in qual_string]
     return median(qual_list)

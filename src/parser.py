@@ -14,7 +14,7 @@ def parser(file_name: str, file_type: str, quality: bool = False, verbose: bool 
     :param verbose: Whether to print status messages, defaults to True.
     :type verbose: bool, optional
     :yield: A tuple containing (sequence, quality_string). Quality is None for FASTA.
-    :rtype: tuple(str, str or None)
+    :rtype: tuple[str, str or None]
     :raises TypeError: If 'quality' is not a boolean.
     :raises ValueError: If 'file_type' is not 'fasta' or 'fastq'.
     """
@@ -117,10 +117,10 @@ def seqParserFastq(f, quality = False):
     :param quality: If True, yields the quality string alongside the sequence.
     :type quality: bool
     :yield: A tuple (sequence, quality_or_None).
-    :rtype: tuple(str, str or None)
+    :rtype: tuple[str, str or None]
     :raises ValueError: If the file is corrupted or contains unknown nucleotides.
     """
-    allowed_symbols = 'AGCTN'
+    allowed_symbols = set('AGCTN')
     i = 0
     for row in f:
         n_row = i%4
@@ -156,7 +156,7 @@ def seqParserFasta(f):
 
     :param f: The open file object.
     :yield: A tuple (sequence, None).
-    :rtype: tuple(str, None)
+    :rtype: tuple[str, None]
     :raises ValueError: If unknown symbols are found in the sequence.
     """
     allowed_symbols = 'AGCTN'

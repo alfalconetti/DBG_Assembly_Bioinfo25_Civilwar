@@ -1,4 +1,5 @@
 from src.dbg import Dbg
+
 def run_assembly_pipeline(
     k, 
     file_name, 
@@ -7,6 +8,7 @@ def run_assembly_pipeline(
     paired=False, 
     file_nameR2=None, 
     reverse_r2=False,
+    offset = 33,
     # Parametri Costruzione e Qualità
     quality_check=False, 
     quality_threshold=30, 
@@ -43,6 +45,8 @@ def run_assembly_pipeline(
     :type file_nameR2: str or None
     :param reverse_r2: Whether R2 reads are already reverse complemented, defaults to False.
     :type reverse_r2: bool
+    :param offset:The Phred quality offset used by the sequencing platform. Defaults to 33. Can be 33 or 64
+    :type offset: int
     :param quality_check: Enable filtering k-mers by base quality, defaults to False.
     :type quality_check: bool
     :param quality_threshold: Minimum Phred score to retain a k-mer, defaults to 30.
@@ -75,7 +79,7 @@ def run_assembly_pipeline(
     # 1. Inizializzazione della classe Dbg
     if verbose: 
         print(f"--- DBG Initialization (k={k}) ---")
-    dbg = Dbg(k, file_name, file_type, paired, file_nameR2, reverse_r2)
+    dbg = Dbg(k, file_name, file_type, paired, file_nameR2, reverse_r2, offset)
 
     # 2. Costruzione del Grafo
     if verbose: 
@@ -148,7 +152,3 @@ def run_assembly_pipeline(
     else:
         print("WARNING: no contig generated")
         return dbg, [], 0
-
-# Esempio di utilizzo su dati paired:
-if __name__ == "__main__":
-    run_assembly_pipeline(k=31, file_name="test_data/Illumina_reads1.fq", paired = True, file_type="fastq", quality_check=True, file_nameR2 = "test_data/Illumina_reads2.fq")

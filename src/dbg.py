@@ -67,7 +67,7 @@ class Dbg:
     """
 
     def __init__(self, k: int, file_name: str, file_type: str, paired: bool = False, 
-                 file_nameR2: str = None, reverse_r2: bool = False):
+                 file_nameR2: str = None, reverse_r2: bool = False, offset = 33):
         """
         Initializes the DBG with assembly parameters and input file metadata.
         DOES NOT build the graph
@@ -78,6 +78,8 @@ class Dbg:
         :type file_name: str
         :param file_type: Format that must be one of ('fasta', 'fastq', 'fa', 'fq').
         :type file_type: str
+        :param offset: Represents the fastq offset for ASCII quality encoding. Can be 33 (default) or 64.
+        :type offset: int
         :param paired: Boolean for paired-end data. If true, a second file needs to be provided and both will be used 
                        to build graph. Default is false.
         :type paired: bool
@@ -94,6 +96,8 @@ class Dbg:
             raise TypeError('file_name must be string')
         if not isinstance(file_type, str):
             raise TypeError('file_type must be string')
+        if not isinstance(offset, int):
+            raise TypeError("offset must be integer")
         if not isinstance(paired, bool):
             raise TypeError('paired must be boolean')
         if not isinstance(reverse_r2, bool):
@@ -104,7 +108,8 @@ class Dbg:
             raise ValueError(f"k must be between 3 and 101. Received: {k}")
         if k % 2 == 0:
             warnings.warn("k is even. Using an odd k is highly recommended to avoid topological complications")
-
+        if offset not in [33,64]:
+            raise ValueError("offset is not a standard offset value")
         # Setup grafo per costruzione
 
         self.k = k #lunghezza kmeri
@@ -117,6 +122,7 @@ class Dbg:
             print("Data in fasta format cannot be paired")
             paired = False
             print("paired set to False")
+        self.offset = offset
         self.paired = paired
         self.reverse_r2 = False
         if self.paired == True:
@@ -197,7 +203,7 @@ class Dbg:
                     read = rc(read)
                 if quality_check:
                     read_qual = read_tup[1]
-                    if median_qual(read_qual) > quality_threshold: # La mediana della quality dell'intera riga deve essere sopra soglia
+                    if median_qual(read_qual, self.offset) > quality_threshold: # La mediana della quality dell'intera riga deve essere sopra soglia
                         self.add_read(read, use_both_strands = use_both_strands)
                     else:
                         reads_discarded += 1

@@ -46,6 +46,14 @@ class Node:
         return len(self.incoming) > 1
 
     def __eq__(self, other):
+        """
+        Compares two nodes based on their sequence (k-1 mer)
+
+        :param other: Another node object to compare
+        :type other: Node
+        :return: True if sequences are identical
+        :rtype: bool
+         """
         return self.seq == other.seq
 
     def __repr__(self):

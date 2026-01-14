@@ -135,12 +135,14 @@ dbg, lengths, n50 = run_assembly_pipeline(
 
 You can find full documentation for this function as described above
 
+A working example is in the `main_pipeline_function.py` file in the root repo directory
+
 A Command line interface for this function could be developed to ease its use in bash workflows.
 
 
 ### 2. Manual Control (Step-by-Step)
 
-For complete control over the assembly process, you can execute each step individually using the Dbg class. See `main_pipeline.py` for a complete working example.
+For complete control over the assembly process, you can execute each step individually using the Dbg class. See `main_pipeline.py` for a complete step by step working example.
 
 Basic Workflow:
 
