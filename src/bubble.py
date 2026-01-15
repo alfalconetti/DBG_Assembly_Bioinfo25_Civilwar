@@ -118,7 +118,7 @@ class Bubble:
             if path[0].source.is_receiving_hub():
                 receiving_hubs_visited.add(path[0].source.seq)
             for edge in path[1:]:
-                sequence += edge.seq[-1]
+                sequence += edge.seq[-1] #aggiungo l'ultima lettera
                 path_weights.append(edge.weight)
                 curr = edge.source
                 if curr.is_receiving_hub():

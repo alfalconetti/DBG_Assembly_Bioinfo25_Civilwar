@@ -198,7 +198,7 @@ class Dbg:
             """
             reads_discarded = 0
             reads_with_N = 0
-            for read_tup in reads:
+            for read_tup in reads: #reads, generatore di tuple [0]seq, [1]qual
                 read = read_tup[0]
                 if 'N' in read:
                     reads_with_N += 1
@@ -310,15 +310,14 @@ class Dbg:
 
         count = 0
         for kmer in kmers_to_remove:
-            edge_to_delete = self.edges[kmer]
+            edge_to_delete = self.edges[kmer] #oggetto edge da eliminare
             
             if edge_to_delete in edge_to_delete.source.outgoing:
-                edge_to_delete.source.outgoing.remove(edge_to_delete) #rimuovo dalla lista outgoing l'arco
+                edge_to_delete.source.outgoing.remove(edge_to_delete) #rimuovo dalla lista outgoing del nodo l'arco
 
             if edge_to_delete in edge_to_delete.destination.incoming:
-                edge_to_delete.destination.incoming.remove(edge_to_delete) #rimuovo dalla lista incoming l'arco
+                edge_to_delete.destination.incoming.remove(edge_to_delete) #rimuovo dalla lista incoming del nodo l'arco
 
-        
             del self.edges[kmer] #rimuovo dal dict
             count += 1
         
@@ -477,9 +476,9 @@ class Dbg:
 
         for edge in path:
             if edge in edge.source.outgoing:
-                edge.source.outgoing.remove(edge)
+                edge.source.outgoing.remove(edge) #rimozione dalla lista di archi nel nodo da cui parte
             if edge in edge.destination.incoming:
-                edge.destination.incoming.remove(edge)
+                edge.destination.incoming.remove(edge) #rimozione dalla lista di archi nel nodo a cui arriva
             if edge.seq in self.edges:
                 del self.edges[edge.seq]
 
@@ -496,19 +495,17 @@ class Dbg:
             :rtype: Iterator[Bubble]
         """
         #generatore
-
         forks = [n for n in self.nodes.values() if n.is_hub()] #lista nodi hub
 
         for fork_node in forks:
-            candidates = {}  #chiave: sequenza nodo arrivo, valore: lista path(lista di di edges)
-
+            candidates = {}  #chiave: sequenza nodo arrivo, valore: lista path(lista di edges)
 
             for edge in fork_node.outgoing:
-                path = [edge]
-                curr = edge.destination
+                path = [edge] #lista di edge
+                curr = edge.destination #nodo arrivo edge
                 valid = True #diventa False quando il nodo è un hub o tip
 
-                while len(path) < max_len: #se è lungo piu di 2k+1, lo tengo
+                while len(path) < max_len: #fin quando il path è corto
                     if curr.is_receiving_hub():
                         break #chiusura bolla
 
@@ -520,7 +517,7 @@ class Dbg:
                     path.append(next_edge) #aggiungo edge al path
                     curr = next_edge.destination
 
-                #se il percorso è valido e chiuso
+                #se il percorso è valido e chiuso e non sono tornato al nodo iniziale
                 if valid and curr.is_receiving_hub() and curr.seq != fork_node.seq:
                     dest_seq = curr.seq
                     if dest_seq not in candidates: 
@@ -530,7 +527,7 @@ class Dbg:
 
             for dest_seq, paths in candidates.items():
                 if len(paths) > 1: #cioè, se quel nodo è davvero un hub, ha più path in entrata:
-                    dest_node = self.nodes[dest_seq]
+                    dest_node = self.nodes[dest_seq] #prendo il nodo
                     yield Bubble(fork_node, dest_node, paths) #restituisco l'oggetto bolla
 
     def process_bubbles(self, cov_threshold: int=5, ratio_threshold: float=0.1, verbose: bool=True) -> int:
@@ -604,12 +601,12 @@ class Dbg:
         :rtype: Iterator[Tip]
         """
         # Detection tips di tipo I
-        potential_inital_nodes_I = [node for node in self.nodes.values() if node.is_hub()]
+        potential_inital_nodes_I = [node for node in self.nodes.values() if node.is_hub()] #lista nodi hub
         for fork_node in potential_inital_nodes_I:
             for edge in fork_node.outgoing:
                 path = [edge]
                 curr = edge.destination
-                valid = True #diventa False quando il nodo è un hub o tip
+                valid = True #diventa False quando il nodo è un hub
 
                 while len(path) < max_len: #se è lungo piu di 2k+1, lo tengo
                     if len(curr.outgoing) == 0:
