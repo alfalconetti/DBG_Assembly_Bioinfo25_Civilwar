@@ -489,9 +489,11 @@ class Dbg:
             It looks for "forks" (nodes with multiple outgoing edges) and tries to find
             paths that reconverge at a specific "sink" node within a certain distance (`max_len`).
 
-            :param max_len: The maximum length (in edges) of a bubble path.
+            :param max_len: The maximum path length (in edges) allowed for a bubble structure.
             :type max_len: int
-            :yield: Bubble objects found in the graph.
+            :yield: A Bubble object for each detected reconvergence.
+            :ytype: Bubble
+            :return: An iterator over the discovered Bubble structures.
             :rtype: Iterator[Bubble]
         """
         #generatore
@@ -596,8 +598,11 @@ class Dbg:
         2. Type II Tips: Paths starting from nowhere and merging into a hub.
 
         :param max_len: Maximum length of a tip to be considered. Longer dead ends are kept as valid contigs.
+        :param max_len: The maximum edge count for a path to be classified as a tip.
         :type max_len: int
-        :yield: Tip objects found in the graph.
+        :yield: A Tip object for each detected dead-end branch.
+        :ytype: Tip
+        :return: An iterator over the discovered Tip structures.
         :rtype: Iterator[Tip]
         """
         # Detection tips di tipo I

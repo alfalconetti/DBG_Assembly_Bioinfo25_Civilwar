@@ -12,7 +12,7 @@ def parser(file_name: str, file_type: str, quality: bool = False, verbose: bool 
     :param quality: Whether to return quality strings (only for FASTQ), defaults to False.
     :type quality: bool, optional
     :param verbose: Whether to print status messages, defaults to True.
-    :type verbose: bool, optional
+    :type verbose: bool
     :yield: A tuple containing (sequence, quality_string). Quality is None for FASTA.
     :rtype: tuple[str, str or None]
     :raises TypeError: If 'quality' is not a boolean.

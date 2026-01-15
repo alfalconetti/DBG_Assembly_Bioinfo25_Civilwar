@@ -13,6 +13,8 @@ def kmer_generate(sequence, k, reverse = False):
         :param reverse: If True, generates k-mers for the reverse complement as well. Defaults to False.
         :type reverse: bool
         :yield: The next k-mer substring found in the sequence.
+        :ytype: str
+        :return: An iterator over the generated kmers
         :rtype: Iterator[str]
         :raises TypeError: If inputs are not of the expected types.
         :raises ValueError: If k is invalid (less than 1 or longer than the sequence).
