@@ -734,11 +734,11 @@ class Dbg:
             island_nodes.add(start_node_seq)
             visited_nodes.add(start_node_seq)  #nodo visitato
 
-            while to_visit:
-                curr_node = to_visit.pop(0) #estragggo nodo
+            while to_visit: #fin quando to_visit ha un nodo
+                curr_node = to_visit.pop(0) #estraggo nodo
 
                 #guardo vicini sia in entrata che in uscita
-                all_neighbors = []
+                all_neighbors = [] #lista di nodi vicini al nodo curr
                 for edge in curr_node.outgoing:
                     all_neighbors.append(edge.destination)
                 for edge in curr_node.incoming:
