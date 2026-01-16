@@ -260,7 +260,7 @@ class Contig:
         attribute
         """
         if self.is_circular():
-            return False #se è un cerchio perfetto, non è unn laccio
+            return False #se è un cerchio perfetto, non è un lazo
         if self.final_node.seq in self.receiving_hubs_visited and self.final_node.seq in self.seq[:-1]: #se non mettessi[:-1] sarebbe sempre True
             self.branch_kmer = self.final_node.seq
             return True
@@ -276,12 +276,24 @@ class Contig:
         return self.bubble and self.bubble_ends[1] == self.final_node.seq
     
     def is_bubble_starting(self) -> bool:
+        """
+        Determines if the contig originates exactly at the divergence node
+        of a resolved bubble. Indicates that the contig starts
+        immediately with the variant.
+        """
         return self.bubble and self.bubble_ends[0] == self.start_node.seq
 
     def is_tip_starting(self) -> bool:
+        """
+        Determines if the contig originates exactly at the branching hub
+        of a resolved tip.
+        """
         return self.tip and self.tip_hub == self.start_node.seq
 
     def get_assembly_phase(self) -> str:
+        """
+        Returns the assembly pipeline phase that generated the contig.
+        """
         if self.remaining:
             return "residual"
         elif self.from_catch_all:
