@@ -794,7 +794,7 @@ class Dbg:
         number_0_in = [node for node in self.nodes.values() if len(node.incoming) == 0]
         number_0_out = [node for node in self.nodes.values() if len(node.outgoing) == 0]
         number_hub = [node for node in self.nodes.values() if node.is_hub()]
-        return number_0_in == number_0_out and number_0_in == 1 and number_hub == 0
+        return len(number_0_in) == len(number_0_out) and len(number_0_in) == 1 and len(number_hub) == 0
 
     def is_eulerian_circular(self) -> bool:
         """
@@ -809,7 +809,7 @@ class Dbg:
         number_0_in = [node for node in self.nodes.values() if len(node.incoming) == 0]
         number_0_out = [node for node in self.nodes.values() if len(node.outgoing) == 0]
         number_hub = [node for node in self.nodes.values() if node.is_hub()]
-        return number_0_in == number_0_out and number_0_in == 0 and number_hub == 0
+        return len(number_0_in) == len(number_0_out) and len(number_0_in) == 0 and len(number_hub) == 0
 
     def _walk_linear(self, start_edge: "Edge") -> tuple[str, "Node", list[int], set[str]]:
         """
