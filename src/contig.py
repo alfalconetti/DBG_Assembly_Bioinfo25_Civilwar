@@ -115,7 +115,7 @@ class Contig:
         self.from_catch_all = from_catch_all
         self.main_tag = "" #riempito da get_tag
         self.tag = "" #riempito da get_tag
-        self.branch_kmer = None #dove il laccio si chiude
+        self.branch_kmer = None #dove il lazo si chiude
         self.bubble_ends = bubble_ends
         self.tip_hub = tip_hub
         self.hub_seq = hub_seq
