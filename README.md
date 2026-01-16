@@ -111,6 +111,9 @@ You can also use the `documentation.pdf` in the root repo folder but it may not 
 ## USAGE
 
 The assembler is designed for both automated execution and manual graph manipulation. You can run the entire pipeline at once or control each step through the Dbg class.
+The starting point can be FASTA or FASTQ files.
+Only FASTQ files can be paired.
+The assembler also is able to read compressed .gz files.
 
 ### 1. Automated Pipeline (Quick Start)
 The run_assembly_pipeline function is the fastest way to assemble your data. It handles everything from FASTQ parsing to N50 calculation. Example usage is below.
