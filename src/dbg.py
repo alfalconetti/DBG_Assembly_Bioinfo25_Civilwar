@@ -214,9 +214,21 @@ class Dbg:
                 else:
                     self.add_read(read, use_both_strands = use_both_strands)
             if quality_check and verbose:
-                print(f"Discarded {reads_discarded} reads due to low median quality and {reads_with_N} due to N presence")
+                if reads_discarded > 0 and reads_with_N > 0:
+                    print(f"Discarded {reads_discarded} reads due to low median quality and {reads_with_N} due to N presence")
+                elif reads_discarded > 0 and reads_with_N == 0:
+                    print(f"Discarded {reads_discarded} reads due to low median quality")
+                elif reads_with_N > 0 and reads_discarded == 0:
+                    print(f"Discarded {reads_with_N} reads due to N presence")
+                else:
+                    print("No discarded reads")
+
             elif verbose and not quality_check:
-                print(f"Discarded {reads_with_N} reads due to N presence")
+                if reads_with_N > 0:
+                    print(f"Discarded {reads_with_N} reads due to N presence")
+                else:
+                    print("No discarded reads")
+
             return reads_discarded+reads_with_N
 
         if not isinstance(quality_check, bool):
