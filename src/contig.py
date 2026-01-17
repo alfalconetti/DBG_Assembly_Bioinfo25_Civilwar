@@ -273,7 +273,7 @@ class Contig:
         of a resolved bubble. Helps distinguish isolated variants from 
         paths that continue further.
         """
-        return self.bubble and self.bubble_ends[1] == self.final_node.seq
+        return self.bubble and self.bubble_ends[1] == self.final_node.seq #il contig finisce dove la bolla finisce
     
     def is_bubble_starting(self) -> bool:
         """
@@ -281,7 +281,7 @@ class Contig:
         of a resolved bubble. Indicates that the contig starts
         immediately with the variant.
         """
-        return self.bubble and self.bubble_ends[0] == self.start_node.seq
+        return self.bubble and self.bubble_ends[0] == self.start_node.seq #il contig inizia dove la bolla inizia
 
     def is_tip_starting(self) -> bool:
         """
