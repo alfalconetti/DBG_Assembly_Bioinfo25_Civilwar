@@ -166,7 +166,7 @@ def seqParserFasta(f):
         if not row:  # Skip empty lines
             continue
         if row.startswith('>'):
-            if sequence != '':
+            if sequence != '': #è iniziata una nuova sequenza
                 yield (sequence, None)
             sequence = ''
         else:

@@ -687,7 +687,7 @@ class Dbg:
         max_len = (self.k * 2) + 1
         iteration = 1
         removed_tips = 0
-        while True: #itero, vengono risolte prima le bolle interne
+        while True: #itero, vengono risolte prima le tip interne
             removed_count = 0
             found_tips = False
 
@@ -805,8 +805,8 @@ class Dbg:
         :return: True if the graph is a single linear path, False otherwise.
         :rtype: bool
         """
-        number_0_in = [node for node in self.nodes.values() if len(node.incoming) == 0]
-        number_0_out = [node for node in self.nodes.values() if len(node.outgoing) == 0]
+        number_0_in = [node for node in self.nodes.values() if len(node.incoming) == 0] #numero nodi che non hanno archi in entrata
+        number_0_out = [node for node in self.nodes.values() if len(node.outgoing) == 0] #numero nodi che non hanno archi in uscita
         number_hub = [node for node in self.nodes.values() if node.is_hub()]
         return len(number_0_in) == len(number_0_out) and len(number_0_in) == 1 and len(number_hub) == 0
 
