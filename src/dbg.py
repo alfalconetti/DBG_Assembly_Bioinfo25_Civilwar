@@ -917,7 +917,7 @@ class Dbg:
         for path in bubble_to_assemble.paths: #per ciascun path della bolla
             for edge in path: #per ciascun edge nel path
                 edge.visited = True
-        alternative_paths = list(bubble_to_assemble._get_contigs_from_path(self.k)) #lista di oggetti contig con sequenza e lista pesi
+        alternative_paths = list(bubble_to_assemble._get_contigs_from_path(self.k)) #lista di oggetti contig
         new_start_node = bubble_to_assemble.dest_node
         bubble_to_assemble.visited = True
         if len(new_start_node.outgoing) == 0 or all([edge.visited for edge in new_start_node.outgoing]): #cioè, se non continua dopo la chiusura della bolla
@@ -1034,7 +1034,7 @@ class Dbg:
                             continue
                         remaining_contig = Contig.from_walk_linear(self._walk_linear(start_edge), self.k, contig_start, remaining = True) #creo contig
                         if remaining_contig.start_node.seq in self.bubbles:
-                            if self.bubbles[remaining_contig.start_node.seq].dest_node.seq in remaining_contig.seq:
+                            if self.bubbles[remaining_contig.start_node.seq].dest_node.seq in remaining_contig.seq: #check che la bolla sia completa
                                 remaining_contig.bubble = True
                                 remaining_contig.bubble_ends = (remaining_contig.start_node.seq, self.bubbles[remaining_contig.start_node.seq].dest_node.seq)
                         elif remaining_contig.start_node.seq in self.tips:
