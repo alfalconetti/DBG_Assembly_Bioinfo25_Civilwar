@@ -149,8 +149,8 @@ class Dbg:
         self.contigs_output_fasta = ''
 
         # Inizializzo strutture dati del grafo
-        self.nodes = {}  #dizionario nodi
-        self.edges = {}  #dizionario archi
+        self.nodes = {} #dizionario nodi
+        self.edges = {} #dizionario archi
         self.contigs = []
         self.bubbles = {}
         self.tips = {}
@@ -215,6 +215,8 @@ class Dbg:
                     self.add_read(read, use_both_strands = use_both_strands)
             if quality_check and verbose:
                 print(f"Discarded {reads_discarded} reads due to low median quality and {reads_with_N} due to N presence")
+            elif verbose and not quality_check and reads_with_N > 0:
+                print(f"Discarded {reads_with_N} reads due to N presence")
             return reads_discarded+reads_with_N
 
         if not isinstance(quality_check, bool):
@@ -908,10 +910,10 @@ class Dbg:
         bubble_to_assemble.visited = True
         if len(new_start_node.outgoing) == 0 or all([edge.visited for edge in new_start_node.outgoing]): #cioè, se non continua dopo la chiusura della bolla
             for alt_contig in alternative_paths:
-                whole_contig = common_contig + alt_contig
+                whole_contig = common_contig + alt_contig #magicmtethod _add_ di Contig
                 whole_contig.get_tag()
                 contigs.append(whole_contig)
-        else:
+        else: #nodo fine bolla non è terminante... può essere un hub
             if new_start_node.is_hub():
                 new_hub_seq = new_start_node.seq
             else:
@@ -998,7 +1000,7 @@ class Dbg:
                 if not forked: #non ho trovato nessun bivio, oppure fork_in_hub spento
                     # Marco che ho trovato un contig che inizia in una bolla o un tip
                     if contig.start_node.seq in self.bubbles:
-                        if self.bubbles[contig.start_node.seq].dest_node.seq in contig.seq:
+                        if self.bubbles[contig.start_node.seq].dest_node.seq in contig.seq: #controllo che abbia percorso tutta la bolla
                             contig.bubble = True
                             contig.bubble_ends = (contig.start_node.seq, self.bubbles[contig.start_node.seq].dest_node.seq)
                     elif contig.start_node.seq in self.tips:
