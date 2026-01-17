@@ -215,7 +215,7 @@ class Dbg:
                     self.add_read(read, use_both_strands = use_both_strands)
             if quality_check and verbose:
                 print(f"Discarded {reads_discarded} reads due to low median quality and {reads_with_N} due to N presence")
-            elif verbose and not quality_check and reads_with_N > 0:
+            elif verbose and not quality_check:
                 print(f"Discarded {reads_with_N} reads due to N presence")
             return reads_discarded+reads_with_N
 
