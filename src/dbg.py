@@ -767,10 +767,11 @@ class Dbg:
 
             #formula: L = k + (N - 1)
             num_nodes = len(island_nodes)
-            seq_len_bp = self.k + (num_nodes - 1)
+            #seq_len_bp = self.k + (num_nodes - 1)
+            num_edges = num_nodes - 1
 
 
-            if seq_len_bp < min_len:
+            if num_edges < min_len:
                 nodes_to_delete.update(island_nodes)
                 deleted_islands += 1
 
@@ -788,7 +789,7 @@ class Dbg:
                     del self.nodes[k]
             if verbose:
                 print(
-                    f"Island Removal: Deleted {deleted_islands} short islands (< {min_len}bp). Removed {len(nodes_to_delete)} nodes.")
+                    f"Island Removal: Deleted {deleted_islands} short islands (< {min_len} edges). Removed {len(nodes_to_delete)} nodes.")
         else:
             if verbose:
                 print("Island Removal: No short islands found.")
